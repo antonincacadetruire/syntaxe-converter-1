@@ -1,0 +1,5 @@
+# Ignore les fichiers générés par Dune
+_build/
+*.install
+*.exe
+*.dune-package

@@ -1,0 +1,4 @@
+(executable
+ (name syntaxe_converter)
+ (public_name syntaxe-converter)
+ (libraries menhirLib))
