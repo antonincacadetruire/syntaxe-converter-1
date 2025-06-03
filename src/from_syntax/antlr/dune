@@ -1,0 +1,10 @@
+(menhir
+ (modules antlr_parser))
+
+(ocamllex
+ (modules antlr_lexer))
+
+(library
+ (name from_syntax_antlr)
+ (modules antlr antlr_parser antlr_lexer)
+ (libraries menhirLib))
