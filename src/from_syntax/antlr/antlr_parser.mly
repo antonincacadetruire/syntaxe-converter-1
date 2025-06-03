@@ -1,7 +1,5 @@
 %{
-(* OCaml header: define your AST types here *)
-type rule = { name : string; definition : string }
-type grammar = rule list
+open Antlr_types
 %}
 
 %token <string> IDENT
