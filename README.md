@@ -1,31 +1,37 @@
 # Syntaxe Converter
 
-Syntaxe Converter est un outil CLI écrit en OCaml et Menhir pour transformer des grammaires entre différents formats : BNF, EBNF, Antlr, TreeSitter, Flex et Bison.
+Syntaxe Converter is a powerful CLI tool designed to convert grammars between popular formats: TreeSitter, ANTLR, BNFC, BISON/FLEX, ASDL, and EBNF.
+
+The tool first parses the source syntax into a universal logical tree, then generates the equivalent grammar in the chosen target format. This approach ensures reliable, structured, and extensible conversion between different grammar ecosystems.
+
+Ideal for developers, researchers, and tool creators working with formal languages and parser generators.
 
 ## Installation
 
-Assurez-vous d'avoir OCaml, Dune et Menhir installés sur votre système.
+Make sure you have OCaml, Dune, and Menhir installed on your system.
 
 ```bash
 opam install dune menhir
 ```
 
-## Utilisation
+## Usage
 
-Compilez le projet avec Dune :
+Build the project with Dune:
 
 ```bash
 dune build
 ```
 
-Exécutez l'outil :
+Run the tool (with CLI options):
 
 ```bash
-_build/default/syntaxe-converter.exe
+dune exec ./src/main.exe -- --from <source_format> --to <target_format> <input_file> <output_file>
 ```
 
-Ajoutez vos options CLI pour spécifier les formats source et cible.
+Replace `<source_format>`, `<target_format>`, `<input_file>`, and `<output_file>` with your desired formats and file paths.
 
-## Contribution
+Example:
 
-Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou une pull request.
+```bash
+dune exec ./src/main.exe -- --from ebnf --to antlr input.ebnf output.g4
+```
