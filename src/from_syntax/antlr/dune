@@ -6,5 +6,6 @@
 
 (library
  (name from_syntax_antlr)
- (modules antlr antlr_parser antlr_lexer antlr_types)
+ (public_name syntaxe-converter.from_syntax.antlr)
+ (modules antlr_types antlr_parser antlr_lexer antlr)
  (libraries menhirLib))

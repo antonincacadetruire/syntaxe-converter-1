@@ -1,4 +1,4 @@
 (executable
  (name main)
  (public_name syntaxe_converter)
- (libraries cmdliner))
+ (libraries cmdliner from_syntax from_syntax_antlr))

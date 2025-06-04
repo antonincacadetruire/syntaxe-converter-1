@@ -1,2 +1,60 @@
-type rule = { name : string; definition : string }
-type grammar = rule list
+type location = {
+  line: int;
+  column: int;
+}
+
+type modifier =
+  | Fragment
+  | Public
+  | Private
+
+type element =
+  | Terminal of string
+  | NonTerminal of string
+  | Action of string
+  | SemanticPredicate of string
+  | Label of string * element
+  | Ebnf of element * suffix
+
+and suffix =
+  | Optional      (* ? *)
+  | ZeroOrMore   (* * *)
+  | OneOrMore    (* + *)
+
+type alternative = {
+  predicate: string option;
+  elements: element list;
+}
+
+type rule = {
+  name: string;
+  modifiers: modifier list;
+  returns: string option;
+  locals: string option;
+  alternatives: alternative list;
+  location: location;
+}
+
+type grammar_type =
+  | Parser
+  | Lexer
+  | Combined
+
+type option_decl = {
+  name: string;
+  value: string;
+}
+
+type tokens_spec = {
+  name: string;
+  type_: string option;
+}
+
+type grammar = {
+  name: string;
+  type_: grammar_type;
+  options: option_decl list;
+  tokens: tokens_spec list;
+  imports: string list;
+  rules: rule list;
+}

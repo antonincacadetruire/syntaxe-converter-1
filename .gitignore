@@ -3,3 +3,5 @@ _build/
 *.install
 *.exe
 *.dune-package
+# Ignore les fichiers de configuration de l'éditeur
+.vscode/

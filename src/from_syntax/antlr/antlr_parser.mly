@@ -1,21 +1,184 @@
 %{
 open Antlr_types
+
+let mk_location startpos =
+  {
+    line = startpos.Lexing.pos_lnum;
+    column = startpos.Lexing.pos_cnum - startpos.Lexing.pos_bol;
+  }
+
+let mk_rule ~name ~mods ~ret ~loc ~alts pos = 
+  {
+    name;
+    modifiers = mods;
+    returns = ret;
+    locals = loc;
+    alternatives = alts;
+    location = mk_location pos;
+  }
 %}
 
 %token <string> IDENT
-%token COLON
-%token SEMICOLON
+%token <string> STRING
+%token <string> ACTION
+%token <string> SEMPRED
+%token GRAMMAR LEXER PARSER
+%token COLON SEMICOLON EQUALS
+%token PIPE STAR PLUS QUESTION
+%token LT GT LPAREN RPAREN LBRACE RBRACE COMMA
+%token OPTIONS TOKENS CHANNELS IMPORT
+%token FRAGMENT PUBLIC PRIVATE RETURNS LOCALS
+%token MODE SKIP MORE TYPE CHANNEL
+%token ARROW
 %token EOF
 
 %start <grammar> main
 %%
 
 main:
-  rules EOF { $1 }
+  | decl = grammar_decl 
+    options = option_section? 
+    imports = import_section?
+    tokens = token_section?
+    channels = channel_section?
+    rules = rules 
+    modes = mode_section*
+    EOF 
+    { 
+      {
+        name = decl.name;
+        type_ = decl.type_;
+        options = (match options with Some o -> o | None -> []);
+        tokens = (match tokens with Some t -> t | None -> []);
+        imports = (match imports with Some i -> i | None -> []);
+        rules = rules;
+      }
+    }
+
+grammar_decl:
+  | g = raw_grammar_decl SEMICOLON { g }
+
+raw_grammar_decl:
+  | GRAMMAR name = IDENT          
+    { {name; type_ = Combined} }
+  | LEXER GRAMMAR name = IDENT    
+    { {name; type_ = Lexer} }
+  | PARSER GRAMMAR name = IDENT   
+    { {name; type_ = Parser} }
+
+option_section:
+  | OPTIONS LBRACE opts = separated_list(SEMICOLON, option_decl) RBRACE    
+    { opts }
+
+option_decl:
+  | name = IDENT EQUALS value = option_value SEMICOLON? 
+    { {name; value} }
+
+option_value:
+  | id = IDENT  { id }
+  | s = STRING  { s }
+
+import_section:
+  | IMPORT imports = separated_list(COMMA, STRING) SEMICOLON 
+    { imports }
+
+channel_section:
+  | CHANNELS LBRACE channels = separated_list(COMMA, channel_decl) RBRACE 
+    { channels }
+
+channel_decl:
+  | name = IDENT 
+    { name }
+
+token_section:
+  | TOKENS LBRACE tokens = separated_list(COMMA, token_spec) RBRACE 
+    { tokens }
+
+token_spec:
+  | name = IDENT type_ = token_type?
+    { { name; type_ = type_ } }
+
+token_type:
+  | LT t = IDENT GT { Some t }
+
+mode_section:
+  | MODE id = IDENT SEMICOLON rules = rules 
+    { {mode_name = id; mode_rules = rules} }
 
 rules:
-  | rule rules { $1 :: $2 }
-  |           { [] }
+  | r = rule rs = rules { r :: rs }
+  |                     { [] }
 
 rule:
-  | IDENT COLON IDENT SEMICOLON { { name = $1; definition = $3 } }
+  | mods = modifier* 
+    name = IDENT 
+    ret = returns? 
+    loc = locals?
+    COLON 
+    alts = alternatives 
+    SEMICOLON 
+    { mk_rule ~name ~mods ~ret ~loc ~alts $startpos }
+
+modifier:
+  | FRAGMENT { Fragment }
+  | PUBLIC   { Public }
+  | PRIVATE  { Private }
+
+returns:
+  | RETURNS LT ret = IDENT GT { Some ret }
+
+locals:
+  | LOCALS LT loc = IDENT GT { Some loc }
+
+alternatives:
+  | alts = separated_nonempty_list(PIPE, alternative) { alts }
+
+alternative:
+  | pred = predicate? elems = element+ command = command?
+    {
+      {
+        predicate = pred;
+        elements = elems;
+      }
+    }
+  | { {predicate = None; elements = []} }
+
+predicate:
+  | LBRACE pred = SEMPRED RBRACE { pred }
+
+command:
+  | ARROW cmd = command_action { cmd }
+
+command_action:
+  | SKIP    { Skip }
+  | MORE    { More }
+  | TYPE    { Type }
+  | CHANNEL { Channel }
+  | action = ACTION { CustomAction action }
+
+element:
+  | label = IDENT ARROW e = element_base  
+    { Label(label, e) }
+  | e = element_base s = suffix?         
+    { 
+      match s with 
+      | None -> e
+      | Some s -> Ebnf(e, s)
+    }
+
+element_base:
+  | id = IDENT         { NonTerminal id }
+  | s = STRING         { Terminal s }
+  | a = ACTION         { Action a }
+  | LPAREN alts = alternatives RPAREN 
+    { 
+      let alt = List.hd alts in 
+      match alt.elements with
+      | [e] -> e
+      | _ -> failwith "Invalid rule reference"
+    }
+
+suffix:
+  | QUESTION { Optional }
+  | STAR    { ZeroOrMore }
+  | PLUS    { OneOrMore }
