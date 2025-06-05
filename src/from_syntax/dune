@@ -1,5 +1,6 @@
 (library
  (name from_syntax)
  (public_name syntaxe-converter.from_syntax)
- (modules logic)
+ (wrapped false)
+ (modules from_syntax logic)
  (libraries from_syntax_antlr))

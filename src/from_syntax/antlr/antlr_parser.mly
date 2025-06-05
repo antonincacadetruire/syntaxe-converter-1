@@ -7,7 +7,7 @@ let mk_location startpos =
     column = startpos.Lexing.pos_cnum - startpos.Lexing.pos_bol;
   }
 
-let mk_rule ~name ~mods ~ret ~loc ~alts pos = 
+let mk_rule ~name ~mods ~ret ~loc ~alts pos =
   {
     name;
     modifiers = mods;
@@ -36,22 +36,23 @@ let mk_rule ~name ~mods ~ret ~loc ~alts pos =
 %%
 
 main:
-  | decl = grammar_decl 
-    options = option_section? 
+  | decl = grammar_decl
+    options = option_section?
     imports = import_section?
     tokens = token_section?
     channels = channel_section?
-    rules = rules 
-    modes = mode_section*
-    EOF 
-    { 
+    rules = rules
+    mode_rules = mode_section*
+    EOF
+    {
       {
         name = decl.name;
         type_ = decl.type_;
         options = (match options with Some o -> o | None -> []);
         tokens = (match tokens with Some t -> t | None -> []);
         imports = (match imports with Some i -> i | None -> []);
-        rules = rules;
+        channels = (match channels with Some c -> c | None -> []);
+        rules = rules @ List.concat (List.map (fun m -> m.mode_rules) mode_rules);
       }
     }
 
@@ -59,19 +60,25 @@ grammar_decl:
   | g = raw_grammar_decl SEMICOLON { g }
 
 raw_grammar_decl:
-  | GRAMMAR name = IDENT          
-    { {name; type_ = Combined} }
-  | LEXER GRAMMAR name = IDENT    
-    { {name; type_ = Lexer} }
-  | PARSER GRAMMAR name = IDENT   
-    { {name; type_ = Parser} }
+  | GRAMMAR name = IDENT
+    { { name; type_ = Combined;
+        options = []; tokens = []; imports = [];
+        channels = []; rules = [] } }
+  | LEXER GRAMMAR name = IDENT
+    { { name; type_ = Lexer;
+        options = []; tokens = []; imports = [];
+        channels = []; rules = [] } }
+  | PARSER GRAMMAR name = IDENT
+    { { name; type_ = Parser;
+        options = []; tokens = []; imports = [];
+        channels = []; rules = [] } }
 
 option_section:
-  | OPTIONS LBRACE opts = separated_list(SEMICOLON, option_decl) RBRACE    
+  | OPTIONS LBRACE opts = separated_list(SEMICOLON, option_decl) RBRACE
     { opts }
 
 option_decl:
-  | name = IDENT EQUALS value = option_value SEMICOLON? 
+  | name = IDENT EQUALS value = option_value SEMICOLON?
     { {name; value} }
 
 option_value:
@@ -79,100 +86,106 @@ option_value:
   | s = STRING  { s }
 
 import_section:
-  | IMPORT imports = separated_list(COMMA, STRING) SEMICOLON 
+  | IMPORT imports = separated_list(COMMA, STRING) SEMICOLON
     { imports }
 
 channel_section:
-  | CHANNELS LBRACE channels = separated_list(COMMA, channel_decl) RBRACE 
+  | CHANNELS LBRACE channels = separated_list(COMMA, channel_decl) RBRACE
     { channels }
 
 channel_decl:
-  | name = IDENT 
+  | name = IDENT
     { name }
 
 token_section:
-  | TOKENS LBRACE tokens = separated_list(COMMA, token_spec) RBRACE 
+  | TOKENS LBRACE tokens = separated_list(COMMA, token_spec) RBRACE
     { tokens }
 
 token_spec:
-  | name = IDENT type_ = token_type?
-    { { name; type_ = type_ } }
-
-token_type:
-  | LT t = IDENT GT { Some t }
+  | name = IDENT LT t = IDENT GT
+    { { name; type_ = Some t } }
+  | name = IDENT
+    { { name; type_ = None } }
 
 mode_section:
-  | MODE id = IDENT SEMICOLON rules = rules 
+  | MODE id = IDENT SEMICOLON rules = rules
     { {mode_name = id; mode_rules = rules} }
 
 rules:
   | r = rule rs = rules { r :: rs }
-  |                     { [] }
+  | { [] }
 
 rule:
-  | mods = modifier* 
-    name = IDENT 
-    ret = returns? 
+  | mods = modifier*
+    name = IDENT
+    ret = returns
     loc = locals?
-    COLON 
-    alts = alternatives 
-    SEMICOLON 
+    COLON
+    alts = alternatives
+    SEMICOLON
     { mk_rule ~name ~mods ~ret ~loc ~alts $startpos }
+  | mods = modifier*
+    name = IDENT
+    loc = locals?
+    COLON
+    alts = alternatives
+    SEMICOLON
+    { mk_rule ~name ~mods ~ret:[] ~loc ~alts $startpos }
+
 
 modifier:
   | FRAGMENT { Fragment }
-  | PUBLIC   { Public }
-  | PRIVATE  { Private }
+  | PUBLIC { Public }
+  | PRIVATE { Private }
+
+command:
+  | ARROW s = ACTION { s }
+  | ARROW SKIP { "skip" }
+  | ARROW MORE { "more" }
+  | ARROW TYPE { "type" }
+  | ARROW CHANNEL { "channel" }
+  | ARROW s = IDENT { s }
 
 returns:
-  | RETURNS LT ret = IDENT GT { Some ret }
+  | RETURNS LT id = IDENT GT { [id] }
 
 locals:
-  | LOCALS LT loc = IDENT GT { Some loc }
+  | LOCALS LT IDENT GT { "local" } (* Single string for the local variable *)
 
 alternatives:
   | alts = separated_nonempty_list(PIPE, alternative) { alts }
 
+
 alternative:
-  | pred = predicate? elems = element+ command = command?
+  | pred = predicate? elems = element+ _cmd = command?
     {
       {
         predicate = pred;
         elements = elems;
       }
     }
-  | { {predicate = None; elements = []} }
 
 predicate:
-  | LBRACE pred = SEMPRED RBRACE { pred }
-
-command:
-  | ARROW cmd = command_action { cmd }
-
-command_action:
-  | SKIP    { Skip }
-  | MORE    { More }
-  | TYPE    { Type }
-  | CHANNEL { Channel }
-  | action = ACTION { CustomAction action }
+  | LBRACE pred = ACTION RBRACE QUESTION { pred }
 
 element:
-  | label = IDENT ARROW e = element_base  
+  | label = IDENT ARROW e = element_base
     { Label(label, e) }
-  | e = element_base s = suffix?         
-    { 
-      match s with 
+  | e = element_base s = suffix?
+    {
+      match s with
       | None -> e
       | Some s -> Ebnf(e, s)
     }
 
 element_base:
-  | id = IDENT         { NonTerminal id }
-  | s = STRING         { Terminal s }
-  | a = ACTION         { Action a }
-  | LPAREN alts = alternatives RPAREN 
-    { 
-      let alt = List.hd alts in 
+  | id = IDENT { NonTerminal id }
+  | s = STRING { Terminal s }
+  | a = ACTION { Action a }
+  | s = SEMPRED { SemanticPredicate s }
+  | LPAREN alts = alternatives RPAREN
+    {
+      let alt = List.hd alts in
       match alt.elements with
       | [e] -> e
       | _ -> failwith "Invalid rule reference"
@@ -180,5 +193,5 @@ element_base:
 
 suffix:
   | QUESTION { Optional }
-  | STAR    { ZeroOrMore }
-  | PLUS    { OneOrMore }
+  | STAR { ZeroOrMore }
+  | PLUS { OneOrMore }

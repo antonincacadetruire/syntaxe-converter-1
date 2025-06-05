@@ -1,4 +1,5 @@
 open Cmdliner
+(* open From_syntax *)
 
 let from =
   let doc = "Source grammar format (e.g., ebnf, antlr, bison, etc.). If not provided, will be detected from file extension." in
@@ -28,10 +29,13 @@ let run from_opt to_opt input output =
   in
   let result = match from with
   | Some "antlr" ->
-      From_syntax.Logic.parse_file input;
-      (* TODO: Implement conversion to target format *)
-      Printf.printf "Output will be written to %s\n" output;
-      Ok ()
+      (match From_syntax.parse_file input with
+      | Ok _grammar ->
+          (* TODO: Implement conversion to target format *)
+          Printf.printf "Output will be written to %s\n" output;
+          Ok ()
+      | Error msg ->
+          Error (`Msg msg))
   | Some fmt ->
       Error (`Msg (Printf.sprintf "Unsupported input format: %s" fmt))
   | None ->

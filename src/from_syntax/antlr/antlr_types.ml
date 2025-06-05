@@ -29,7 +29,7 @@ type alternative = {
 type rule = {
   name: string;
   modifiers: modifier list;
-  returns: string option;
+  returns: string list; (* Updated from string option to string list *)
   locals: string option;
   alternatives: alternative list;
   location: location;
@@ -50,11 +50,17 @@ type tokens_spec = {
   type_: string option;
 }
 
+type mode_section = {
+  mode_name: string;
+  mode_rules: rule list;
+}
+
 type grammar = {
-  name: string;
-  type_: grammar_type;
-  options: option_decl list;
-  tokens: tokens_spec list;
-  imports: string list;
-  rules: rule list;
+  name : string;
+  type_ : grammar_type;
+  options : option_decl list;
+  tokens : tokens_spec list;
+  imports : string list;
+  channels : string list;
+  rules : rule list;
 }

@@ -1,11 +1,11 @@
 open From_syntax_antlr
 open Antlr_types
 
-type grammar_type =
+type input_type =
   | ANTLR
   | Unsupported
 
-let detect_grammar_type filename =
+let detect_input_type filename =
   match Filename.extension filename with
   | ".g4" -> ANTLR
   | _ -> Unsupported
@@ -22,16 +22,18 @@ let parse_antlr_file filename =
   with e ->
     Error (Printexc.to_string e)
 
+let print_grammar filename (grammar : grammar) =
+  Printf.printf "Successfully parsed ANTLR grammar file: %s\n" filename;
+  Printf.printf "Found %d rules:\n" (List.length grammar.rules);
+  let print_rule (r : rule) = Printf.printf "  Rule: %s\n" r.name in
+  List.iter print_rule grammar.rules
+
 let parse_file filename =
-  let result = match detect_grammar_type filename with
+  match detect_input_type filename with
   | ANTLR -> 
       (match parse_antlr_file filename with
       | Ok grammar -> 
-          Printf.printf "Successfully parsed ANTLR grammar file: %s\n" filename;
-          Printf.printf "Found %d rules:\n" (List.length grammar);
-          List.iter (fun rule ->
-            Printf.printf "  Rule: %s -> %s\n" rule.name rule.definition
-          ) grammar;
+          print_grammar filename grammar;
           Ok grammar
       | Error msg ->
           Printf.eprintf "Failed to parse ANTLR grammar: %s\n" msg;
@@ -41,10 +43,6 @@ let parse_file filename =
         (Filename.extension filename) in
       Printf.eprintf "%s" msg;
       Error msg
-  in
-  match result with
-  | Ok _ -> ()
-  | Error _ -> ()
 
 let () =
   if Array.length Sys.argv < 2 then (
@@ -54,4 +52,4 @@ let () =
     exit 1
   );
   let filename = Sys.argv.(1) in
-  parse_file filename
+  ignore (parse_file filename)
