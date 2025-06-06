@@ -15,6 +15,7 @@ type element =
   | SemanticPredicate of string
   | Label of string * element
   | Ebnf of element * suffix
+  | Group of element list
 
 and suffix =
   | Optional      (* ? *)

@@ -30,6 +30,7 @@ let mk_rule ~name ~mods ~ret ~loc ~alts pos =
 %token FRAGMENT PUBLIC PRIVATE RETURNS LOCALS
 %token MODE SKIP MORE TYPE CHANNEL
 %token ARROW
+%token DOT DOTSTAR
 %token EOF
 
 %start <grammar> main
@@ -37,22 +38,20 @@ let mk_rule ~name ~mods ~ret ~loc ~alts pos =
 
 main:
   | decl = grammar_decl
-    options = option_section?
+    opts = option_section?
     imports = import_section?
     tokens = token_section?
     channels = channel_section?
     rules = rules
-    mode_rules = mode_section*
     EOF
-    {
-      {
-        name = decl.name;
-        type_ = decl.type_;
-        options = (match options with Some o -> o | None -> []);
-        tokens = (match tokens with Some t -> t | None -> []);
+    { 
+      let g = decl in
+      { g with 
+        options = (match opts with Some o -> o | None -> []);
         imports = (match imports with Some i -> i | None -> []);
+        tokens = (match tokens with Some t -> t | None -> []);
         channels = (match channels with Some c -> c | None -> []);
-        rules = rules @ List.concat (List.map (fun m -> m.mode_rules) mode_rules);
+        rules = rules 
       }
     }
 
@@ -74,16 +73,21 @@ raw_grammar_decl:
         channels = []; rules = [] } }
 
 option_section:
-  | OPTIONS LBRACE opts = separated_list(SEMICOLON, option_decl) RBRACE
+  | OPTIONS LBRACE opts = option_list RBRACE SEMICOLON?
     { opts }
+
+option_list:
+  | opts = separated_list(SEMICOLON, option_decl)  { opts }
 
 option_decl:
   | name = IDENT EQUALS value = option_value SEMICOLON?
     { {name; value} }
 
 option_value:
-  | id = IDENT  { id }
-  | s = STRING  { s }
+  | id = IDENT   { id }
+  | s = STRING   { s }
+  | a = ACTION   { a }
+
 
 import_section:
   | IMPORT imports = separated_list(COMMA, STRING) SEMICOLON
@@ -169,8 +173,22 @@ predicate:
   | LBRACE pred = ACTION RBRACE QUESTION { pred }
 
 element:
-  | label = IDENT ARROW e = element_base
-    { Label(label, e) }
+  | label = IDENT ARROW e = element_base s = suffix?
+    { 
+      let e = match s with
+        | None -> e
+        | Some s -> Ebnf(e, s)
+      in
+      Label(label, e)
+    }
+  | label = IDENT EQUALS e = element_base s = suffix?
+    { 
+      let e = match s with
+        | None -> e
+        | Some s -> Ebnf(e, s)
+      in
+      Label(label, e)
+    }
   | e = element_base s = suffix?
     {
       match s with
@@ -186,9 +204,8 @@ element_base:
   | LPAREN alts = alternatives RPAREN
     {
       let alt = List.hd alts in
-      match alt.elements with
-      | [e] -> e
-      | _ -> failwith "Invalid rule reference"
+      (* Create a group containing all elements within the parentheses *)
+      Group alt.elements
     }
 
 suffix:

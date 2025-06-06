@@ -57,8 +57,11 @@ let rec string_of_element (e : element) : string =
   | Action s -> Printf.sprintf "{%s}" s
   | SemanticPredicate s -> Printf.sprintf "{%s}?" s
   | Label (l, e) -> Printf.sprintf "%s=%s" l (string_of_element e)
-  | Ebnf (e, suffix) -> 
-      Printf.sprintf "%s%s" 
+  | Group elements -> 
+      Printf.sprintf "(%s)" 
+        (String.concat " " (List.map string_of_element elements))
+  | Ebnf (e, suffix) ->
+      Printf.sprintf "%s%s"
         (string_of_element e)
         (match suffix with
          | Optional -> "?"

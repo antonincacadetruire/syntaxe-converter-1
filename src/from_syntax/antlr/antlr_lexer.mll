@@ -3,7 +3,6 @@ open Antlr_parser
 open Lexing
 
 let in_comment = ref false
-let brace_count = ref 0
 let string_buffer = Buffer.create 256
 
 let pos lexbuf =
@@ -12,7 +11,11 @@ let pos lexbuf =
 
 let lexing_error lexbuf c =
   let msg = Printf.sprintf "Unexpected character '%c' at %s" c (pos lexbuf) in
-  failwith msg
+  (* Special case: if we see a #, treat it and everything after it on the line as a comment *)
+  if c = '#' then
+    failwith "Comment starting with # found - this is probably an ANTLR visitor label which is not supported"
+  else
+    failwith msg
 
 let update_loc lexbuf =
   let pos = lexbuf.lex_curr_p in
@@ -84,6 +87,8 @@ let debug_token token =
     | MORE -> "MORE"
     | TYPE -> "TYPE"
     | CHANNEL -> "CHANNEL"
+    | DOT -> "DOT"
+    | DOTSTAR -> "DOTSTAR"
     | EOF -> "EOF"
   );
   token
@@ -95,10 +100,13 @@ rule token = parse
   | '\n'                { update_loc lexbuf; token lexbuf }
   | "//" [^'\n']* '\n' { update_loc lexbuf; token lexbuf }
   | "/*"                { in_comment := true; block_comment lexbuf }
+  | '#' [^ '\n']* '\n' { update_loc lexbuf; token lexbuf } (* Skip ANTLR visitor labels *)
+  | '<' ("assoc" | "prec") [ ' ' '\t']* '=' [ ' ' '\t']* [^ '>' ]* '>' { token lexbuf } (* Skip ANTLR associativity/precedence annotations *)
   | ':'                 { debug_token COLON }
   | '='                 { debug_token EQUALS }
   | ';'                 { debug_token SEMICOLON }
   | '|'                 { debug_token PIPE }
+  | '.'                 { debug_token DOT }
   | '*'                 { debug_token STAR }
   | '+'                 { debug_token PLUS }
   | '?'                 { debug_token QUESTION }
@@ -106,13 +114,13 @@ rule token = parse
   | '>'                 { debug_token GT }
   | '('                 { debug_token LPAREN }
   | ')'                 { debug_token RPAREN }
-  | '{'                 { Buffer.clear string_buffer; brace_count := 1; action lexbuf }
+  | '{'                 { debug_token LBRACE }
   | '}'                 { debug_token RBRACE }
   | ','                 { debug_token COMMA }
   | "->"                { debug_token ARROW }
   | '\''               { Buffer.clear string_buffer; string_literal '\'' lexbuf }
   | '"'                { Buffer.clear string_buffer; string_literal '"' lexbuf }
-  | ['A'-'Z''a'-'z''_']['A'-'Z''a'-'z''0'-'9''_']* as id 
+  | ['A'-'Z''a'-'z''_']['A'-'Z''a'-'z''0'-'9''_']* as id
     { debug_token (handle_identifier id) }
   | eof                 { debug_token EOF }
   | _ as c             { lexing_error lexbuf c }
@@ -123,36 +131,6 @@ and block_comment = parse
   | _                   { block_comment lexbuf }
   | eof                 { failwith "Unterminated block comment" }
 
-and action = parse
-  | '{'                 { 
-      incr brace_count;
-      Buffer.add_char string_buffer '{';
-      action lexbuf 
-    }
-  | '}'                 { 
-      decr brace_count;
-      if !brace_count = 0 then
-        debug_token (ACTION (Buffer.contents string_buffer))
-      else (
-        Buffer.add_char string_buffer '}';
-        action lexbuf
-      )
-    }
-  | "?=>" | "=>" | "?" as pred { 
-      Buffer.add_string string_buffer pred;
-      debug_token (SEMPRED (Buffer.contents string_buffer))
-    }
-  | '\n'                { 
-      update_loc lexbuf;
-      Buffer.add_char string_buffer '\n';
-      action lexbuf 
-    }
-  | [^'{''}''\n']+ as s { 
-      Buffer.add_string string_buffer s;
-      action lexbuf 
-    }
-  | eof                 { failwith "Unterminated action" }
-
 and string_literal delim = parse
   | '\\'               { escape_char delim lexbuf }
   | '\n'               { update_loc lexbuf; Buffer.add_char string_buffer '\n'; string_literal delim lexbuf }
@@ -161,8 +139,8 @@ and string_literal delim = parse
       if c = delim then
         debug_token (STRING (Buffer.contents string_buffer))
       else (
-        Buffer.add_char string_buffer c; 
-        string_literal delim lexbuf 
+        Buffer.add_char string_buffer c;
+        string_literal delim lexbuf
       )
     }
 
