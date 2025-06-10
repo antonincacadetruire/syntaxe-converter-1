@@ -102,27 +102,27 @@ rule token = parse
   | "/*"                { in_comment := true; block_comment lexbuf }
   | '#' [^ '\n']* '\n' { update_loc lexbuf; token lexbuf } (* Skip ANTLR visitor labels *)
   | '<' ("assoc" | "prec") [ ' ' '\t']* '=' [ ' ' '\t']* [^ '>' ]* '>' { token lexbuf } (* Skip ANTLR associativity/precedence annotations *)
-  | ':'                 { debug_token COLON }
-  | '='                 { debug_token EQUALS }
-  | ';'                 { debug_token SEMICOLON }
-  | '|'                 { debug_token PIPE }
-  | '.'                 { debug_token DOT }
-  | '*'                 { debug_token STAR }
-  | '+'                 { debug_token PLUS }
-  | '?'                 { debug_token QUESTION }
-  | '<'                 { debug_token LT }
-  | '>'                 { debug_token GT }
-  | '('                 { debug_token LPAREN }
-  | ')'                 { debug_token RPAREN }
-  | '{'                 { debug_token LBRACE }
-  | '}'                 { debug_token RBRACE }
-  | ','                 { debug_token COMMA }
-  | "->"                { debug_token ARROW }
+  | ':'                 { COLON }
+  | '='                 { EQUALS }
+  | ';'                 { SEMICOLON }
+  | '|'                 { PIPE }
+  | '.'                 { DOT }
+  | '*'                 { STAR }
+  | '+'                 { PLUS }
+  | '?'                 { QUESTION }
+  | '<'                 { LT }
+  | '>'                 { GT }
+  | '('                 { LPAREN }
+  | ')'                 { RPAREN }
+  | '{'                 { LBRACE }
+  | '}'                 { RBRACE }
+  | ','                 { COMMA }
+  | "->"                { ARROW }
   | '\''               { Buffer.clear string_buffer; string_literal '\'' lexbuf }
   | '"'                { Buffer.clear string_buffer; string_literal '"' lexbuf }
   | ['A'-'Z''a'-'z''_']['A'-'Z''a'-'z''0'-'9''_']* as id
-    { debug_token (handle_identifier id) }
-  | eof                 { debug_token EOF }
+    { (handle_identifier id) }
+  | eof                 { EOF }
   | _ as c             { lexing_error lexbuf c }
 
 and block_comment = parse
@@ -137,7 +137,7 @@ and string_literal delim = parse
   | eof                { failwith "Unterminated string literal" }
   | _ as c             {
       if c = delim then
-        debug_token (STRING (Buffer.contents string_buffer))
+        (STRING (Buffer.contents string_buffer))
       else (
         Buffer.add_char string_buffer c;
         string_literal delim lexbuf

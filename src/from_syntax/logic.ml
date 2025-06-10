@@ -33,7 +33,7 @@ let parse_file filename =
   | ANTLR -> 
       (match parse_antlr_file filename with
       | Ok grammar -> 
-          print_grammar filename grammar;
+          (* print_grammar filename grammar; *)
           Ok grammar
       | Error msg ->
           Printf.eprintf "Failed to parse ANTLR grammar: %s\n" msg;
@@ -44,12 +44,30 @@ let parse_file filename =
       Printf.eprintf "%s" msg;
       Error msg
 
-let () =
-  if Array.length Sys.argv < 2 then (
-    prerr_endline "Usage: syntaxe-converter <grammar-file>";
-    prerr_endline "Supported file types:";
-    prerr_endline "  .g4 (ANTLR)";
-    exit 1
-  );
+let parse_and_return_grammar filename =
+  match parse_file filename with
+  | Ok grammar -> Some grammar
+  | Error _ -> None
+
+let main () =
+  if Array.length Sys.argv < 2 then
+    begin
+      prerr_endline "Usage: syntaxe-converter <grammar-file>";
+      prerr_endline "Supported file types:";
+      prerr_endline "  .g4 (ANTLR)";
+      exit 1
+    end;
   let filename = Sys.argv.(1) in
-  ignore (parse_file filename)
+  match parse_and_return_grammar filename with
+  | Some grammar ->
+      (* You can use the grammar here *)
+      Printf.printf "Parsing successful and grammar is available.\n";
+      (* Return the grammar or perform further operations *)
+      grammar
+  | None ->
+      Printf.printf "Parsing failed.\n";
+      exit 1
+
+let () =
+  let _ = main () in
+  ()
