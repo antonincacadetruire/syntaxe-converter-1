@@ -22,10 +22,11 @@ let mk_rule ~name ~mods ~ret ~loc ~alts pos =
 %token <string> STRING
 %token <string> ACTION
 %token <string> SEMPRED
+%token <string> LABEL
 %token GRAMMAR LEXER PARSER
 %token COLON SEMICOLON EQUALS
 %token PIPE STAR PLUS QUESTION
-%token LT GT LPAREN RPAREN LBRACE RBRACE COMMA
+%token LT GT LPAREN RPAREN LBRACE RBRACE COMMA LBRACKET RBRACKET
 %token OPTIONS TOKENS CHANNELS IMPORT
 %token FRAGMENT PUBLIC PRIVATE RETURNS LOCALS
 %token MODE SKIP MORE TYPE CHANNEL
@@ -174,7 +175,8 @@ predicate:
 
 element:
   | label = IDENT ARROW e = element_base s = suffix?
-    { 
+    {
+      Printf.eprintf "Parser: Processing Label with ARROW: %s\n" label;
       let e = match s with
         | None -> e
         | Some s -> Ebnf(e, s)
@@ -182,12 +184,27 @@ element:
       Label(label, e)
     }
   | label = IDENT EQUALS e = element_base s = suffix?
-    { 
+    {
+      Printf.eprintf "Parser: Processing Label with EQUALS: %s\n" label;
       let e = match s with
         | None -> e
         | Some s -> Ebnf(e, s)
       in
       Label(label, e)
+    }
+   | label = LABEL e = element_base s = suffix?
+    {
+      Printf.eprintf "Parser: Processing Label: %s\n" label;
+      let e = match s with
+        | None -> e
+        | Some s -> Ebnf(e, s)
+      in
+      Label(label, e)
+    }
+    | label = LABEL
+    {
+      Printf.eprintf "Parser: Processing Label: %s\n" label;
+      Label("", NonTerminal label)
     }
   | e = element_base s = suffix?
     {
@@ -205,6 +222,12 @@ element_base:
     {
       let alt = List.hd alts in
       (* Create a group containing all elements within the parentheses *)
+      Group alt.elements
+    }
+  | LBRACKET alts = alternatives RBRACKET
+    {
+      let alt = List.hd alts in
+      (* Create a group containing all elements within the bracket *)
       Group alt.elements
     }
 

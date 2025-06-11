@@ -5,3 +5,5 @@ _build/
 *.dune-package
 # Ignore les fichiers de configuration de l'éditeur
 .vscode/
+#ignore les fichiers de node_modules
+node_modules/

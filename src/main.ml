@@ -33,7 +33,7 @@ let rec string_of_element = function
   | NonTerminal s -> s
   | Action s -> s
   | SemanticPredicate s -> s
-  | Label (l, e) -> l ^ ":" ^ string_of_element e
+  | Label (_, e) -> string_of_element e
   | Ebnf (e, Optional) -> string_of_element e ^ "?"
   | Ebnf (e, ZeroOrMore) -> string_of_element e ^ "*"
   | Ebnf (e, OneOrMore) -> string_of_element e ^ "+"

@@ -51,6 +51,7 @@ let handle_identifier id =
 
 let debug_token token =
   Printf.eprintf "Token: %s\n" (match token with
+    | LABEL s -> "LABEL(" ^ s ^ ")"
     | IDENT s -> "IDENT(" ^ s ^ ")"
     | STRING s -> "STRING(" ^ s ^ ")"
     | ACTION s -> "ACTION(" ^ s ^ ")"
@@ -71,6 +72,8 @@ let debug_token token =
     | RPAREN -> "RPAREN"
     | LBRACE -> "LBRACE"
     | RBRACE -> "RBRACE"
+    | LBRACKET -> "LBRACKET"
+    | RBRACKET -> "RBRACKET"
     | COMMA -> "COMMA"
     | ARROW -> "ARROW"
     | OPTIONS -> "OPTIONS"
@@ -100,28 +103,32 @@ rule token = parse
   | '\n'                { update_loc lexbuf; token lexbuf }
   | "//" [^'\n']* '\n' { update_loc lexbuf; token lexbuf }
   | "/*"                { in_comment := true; block_comment lexbuf }
-  | '#' [^ '\n']* '\n' { update_loc lexbuf; token lexbuf } (* Skip ANTLR visitor labels *)
-  | '<' ("assoc" | "prec") [ ' ' '\t']* '=' [ ' ' '\t']* [^ '>' ]* '>' { token lexbuf } (* Skip ANTLR associativity/precedence annotations *)
-  | ':'                 { COLON }
-  | '='                 { EQUALS }
-  | ';'                 { SEMICOLON }
-  | '|'                 { PIPE }
-  | '.'                 { DOT }
-  | '*'                 { STAR }
-  | '+'                 { PLUS }
-  | '?'                 { QUESTION }
-  | '<'                 { LT }
-  | '>'                 { GT }
-  | '('                 { LPAREN }
-  | ')'                 { RPAREN }
-  | '{'                 { LBRACE }
-  | '}'                 { RBRACE }
-  | ','                 { COMMA }
-  | "->"                { ARROW }
+  | '#' ['A'-'Z''a'-'z']['A'-'Z''a'-'z''0'-'9''_']* as label 
+    { debug_token (LABEL label) }
+  (* | '#' [^ '\n']* { token lexbuf } *)
+  | '<' ("assoc" | "prec") [ ' ' '\t']* '=' [ ' ' '\t']* [^ '>' ]* '>' { token lexbuf }
+  | ':'                 { debug_token COLON }
+  | '='                 { debug_token EQUALS }
+  | ';'                 { debug_token SEMICOLON }
+  | '|'                 { debug_token PIPE }
+  | '.'                 { debug_token DOT }
+  | '*'                 { debug_token STAR }
+  | '+'                 { debug_token PLUS }
+  | '?'                 { debug_token QUESTION }
+  | '<'                 { debug_token LT }
+  | '>'                 { debug_token GT }
+  | '('                 { debug_token LPAREN }
+  | ')'                 { debug_token RPAREN }
+  | '{'                 { debug_token LBRACE }
+  | '}'                 { debug_token RBRACE }
+  | ','                 { debug_token COMMA }
+  | "->"                { debug_token ARROW }
+  | "["                 { debug_token LBRACKET }
+  | "]"                 { debug_token RBRACKET }
   | '\''               { Buffer.clear string_buffer; string_literal '\'' lexbuf }
   | '"'                { Buffer.clear string_buffer; string_literal '"' lexbuf }
   | ['A'-'Z''a'-'z''_']['A'-'Z''a'-'z''0'-'9''_']* as id
-    { (handle_identifier id) }
+    { debug_token (handle_identifier id) }
   | eof                 { EOF }
   | _ as c             { lexing_error lexbuf c }
 

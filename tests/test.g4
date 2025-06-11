@@ -1,0 +1,2 @@
+lexer grammar JavaParser;
+#labelNamesomeElement

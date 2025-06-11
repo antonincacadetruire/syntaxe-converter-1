@@ -1,0 +1,12 @@
+{
+  "name": "syntaxe-converter",
+  "version": "1.0.0",
+  "description": "ajout du package pour tree-sitter",
+  "main": "",
+  "dependencies": {
+    "tree-sitter-cli": "^0.25.6"
+  },
+  "devDependencies": {},
+  "author": "Antonin",
+  "license": "ISC"
+}

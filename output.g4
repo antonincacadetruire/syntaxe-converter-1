@@ -108,10 +108,10 @@ options {tokenVocab = JavaLexer;}
   typeParameters constructorDeclaration;
 
  constructorDeclaration :
-  identifier formalParameters (THROWS qualifiedNameList)? constructorBody:block;
+  identifier formalParameters (THROWS qualifiedNameList)? block;
 
  compactConstructorDeclaration :
-  modifier* identifier constructorBody:block;
+  modifier* identifier block;
 
  fieldDeclaration :
   typeType variableDeclarators ;;
@@ -355,7 +355,7 @@ options {tokenVocab = JavaLexer;}
   classOrInterfaceModifier* (classDeclaration);
 
  statement :
-  blockLabel:block
+  block
   | ASSERT expression (: expression)? ;
   | IF parExpression statement (ELSE statement)?
   | FOR ( forControl ) statement
@@ -371,9 +371,9 @@ options {tokenVocab = JavaLexer;}
   | CONTINUE identifier? ;
   | YIELD expression ;
   | SEMI
-  | statementExpression:expression ;
+  | expression ;
   | switchExpression ;?
-  | identifierLabel:identifier : statement;
+  | identifier : statement;
 
  catchClause :
   CATCH ( variableModifier* catchType identifier ) block;
@@ -398,12 +398,12 @@ options {tokenVocab = JavaLexer;}
   switchLabel+ blockStatement+;
 
  switchLabel :
-  CASE (constantExpression:expression) :
+  CASE (expression) :
   | DEFAULT :;
 
  forControl :
   enhancedForControl
-  | forInit? ; expression? ; forUpdate:expressionList?;
+  | forInit? ; expression? ; expressionList?;
 
  forInit :
   localVariableDeclaration
@@ -422,32 +422,32 @@ options {tokenVocab = JavaLexer;}
   (identifier) arguments;
 
  expression :
-  primary
-  | expression [ expression ]
-  | expression bop:. (identifier)
-  | methodCall
-  | expression :: typeArguments? identifier
-  | typeType :: (typeArguments? identifier)
-  | classType :: typeArguments? NEW
-  | switchExpression
-  | expression postfix:(++)
-  | prefix:(+) expression
-  | ( annotation* typeType (& typeType)* ) expression
-  | NEW creator
-  | expression bop:(*) expression
-  | expression bop:(+) expression
-  | expression (< <) expression
-  | expression bop:(<=) expression
-  | expression bop:INSTANCEOF (typeType)
-  | expression bop:(==) expression
-  | expression bop:& expression
-  | expression bop:^ expression
-  | expression bop:| expression
-  | expression bop:&& expression
-  | expression bop:|| expression
-  | expression bop:? expression : expression
-  | expression bop:(=) expression
-  | lambdaExpression;
+  primary #PrimaryExpression
+  | expression [ expression ] #SquareBracketExpression
+  | expression . (identifier) #MemberReferenceExpression
+  | methodCall #MethodCallExpression
+  | expression :: typeArguments? identifier #MethodReferenceExpression
+  | typeType :: (typeArguments? identifier) #MethodReferenceExpression
+  | classType :: typeArguments? NEW #MethodReferenceExpression
+  | switchExpression #ExpressionSwitch
+  | expression (++) #PostIncrementDecrementOperatorExpression
+  | (+) expression #UnaryOperatorExpression
+  | ( annotation* typeType (& typeType)* ) expression #CastExpression
+  | NEW creator #ObjectCreationExpression
+  | expression (*) expression #BinaryOperatorExpression
+  | expression (+) expression #BinaryOperatorExpression
+  | expression (< <) expression #BinaryOperatorExpression
+  | expression (<=) expression #BinaryOperatorExpression
+  | expression INSTANCEOF (typeType) #InstanceOfOperatorExpression
+  | expression (==) expression #BinaryOperatorExpression
+  | expression & expression #BinaryOperatorExpression
+  | expression ^ expression #BinaryOperatorExpression
+  | expression | expression #BinaryOperatorExpression
+  | expression && expression #BinaryOperatorExpression
+  | expression || expression #BinaryOperatorExpression
+  | expression ? expression : expression #TernaryExpression
+  | expression (=) expression #BinaryOperatorExpression
+  | lambdaExpression #ExpressionLambda;
 
  pattern :
   variableModifier* typeType annotation* identifier;
