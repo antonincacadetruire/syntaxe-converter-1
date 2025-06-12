@@ -123,8 +123,7 @@ rule token = parse
   | '}'                 { debug_token RBRACE }
   | ','                 { debug_token COMMA }
   | "->"                { debug_token ARROW }
-  | "["                 { debug_token LBRACKET }
-  | "]"                 { debug_token RBRACKET }
+  | '[' ['A'-'Z''a'-'z''_']['A'-'Z''a'-'z''0'-'9''_'] + ']' as content  { debug_token (CHAR_CLASS content) }
   | '\''               { Buffer.clear string_buffer; string_literal '\'' lexbuf }
   | '"'                { Buffer.clear string_buffer; string_literal '"' lexbuf }
   | ['A'-'Z''a'-'z''_']['A'-'Z''a'-'z''0'-'9''_']* as id

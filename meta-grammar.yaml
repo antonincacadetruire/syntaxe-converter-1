@@ -1,0 +1,156 @@
+language: "my_meta_language"
+version: "1.0"
+
+structure:
+  rules:
+    - type: "sequence"
+      name: "if_statement"
+      elements:
+        - type: "keyword"
+          value: "if"
+        - type: "symbol"
+          value: "("
+        - type: "reference"
+          target: "expression"
+        - type: "symbol"
+          value: ")"
+        - type: "reference"
+          target: "statement"
+
+    - type: "choice"
+      name: "expression"
+      options:
+        - type: "token"
+          target: "identifier"
+        - type: "token"
+          target: "number"
+        - type: "sequence"
+          elements:
+            - type: "reference"
+              target: "expression"
+            - type: "operator"
+              value: "+"
+            - type: "reference"
+              target: "expression"
+        - type: "sequence"
+          elements:
+            - type: "reference"
+              target: "expression"
+            - type: "operator"
+              value: "-"
+            - type: "reference"
+              target: "expression"
+        - type: "sequence"
+          elements:
+            - type: "reference"
+              target: "expression"
+            - type: "operator"
+              value: "*"
+            - type: "reference"
+              target: "expression"
+        - type: "sequence"
+          elements:
+            - type: "reference"
+              target: "expression"
+            - type: "operator"
+              value: "/"
+            - type: "reference"
+              target: "expression"
+        - type: "sequence"
+          elements:
+            - type: "symbol"
+              value: "("
+            - type: "reference"
+              target: "expression"
+            - type: "symbol"
+              value: ")"
+        - type: "reference"
+          target: "function_call"
+        - type: "sequence"
+          elements:
+            - type: "reference"
+              target: "expression"
+            - type: "operator"
+              value: "&&"
+            - type: "reference"
+              target: "expression"
+        - type: "sequence"
+          elements:
+            - type: "reference"
+              target: "expression"
+            - type: "operator"
+              value: "||"
+            - type: "reference"
+              target: "expression"
+        - type: "sequence"
+          elements:
+            - type: "reference"
+              target: "expression"
+            - type: "operator"
+              value: "=="
+            - type: "reference"
+              target: "expression"
+
+    - type: "choice"
+      name: "statement"
+      options: 
+        - type: "reference"
+          target: "expression"
+        - type: "sequence"
+          elements:
+            - type: "symbol"
+              value: "{"
+            - type: "repeat"
+              target: "statement"
+            - type: "symbol"
+              value: "}"
+        - type: "reference"
+          target: "if_statement"
+        - type: "reference"
+          target: "while_loop"
+        - type: "reference"
+          target: "for_loop"
+        - type: "reference"
+          target: "function_call"
+        - type: "reference"
+          target: "return_statement"
+
+  tokens:
+    - name: "identifier"
+      pattern: "[a-zA-Z_]\\w*"
+    - name: "number"
+      pattern: "\\d+"
+    - name: "whitespace"
+      pattern: "\\s+"
+      ignored: true
+
+  extras:
+    - type: "reference"
+      target: "line_comment"
+    - type: "reference"
+      target: "block_comment"
+    - type: "regex"
+      pattern: "\\s+"
+
+  precedence:
+    - name: "addition"
+      level: 1
+    - name: "multiplication"
+      level: 2
+
+  associativity:
+    - name: "addition"
+      direction: "left"
+    - name: "multiplication"
+      direction: "left"
+
+  conflicts:
+    - elements: ["modifiers", "annotated_type", "receiver_parameter"]
+    - elements: ["expression", "statement"]
+    - elements: ["lambda_expression", "primary_expression"]
+
+  inline:
+    - "_name"
+    - "_simple_type"
+    - "_class_body_declaration"
+    - "_variable_initializer"

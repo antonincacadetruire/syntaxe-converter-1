@@ -16,6 +16,7 @@ type element =
   | Label of string * element
   | Ebnf of element * suffix
   | Group of element list
+  | CharacterClass of string
 
 and suffix =
   | Optional      (* ? *)

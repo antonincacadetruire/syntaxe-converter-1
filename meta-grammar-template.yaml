@@ -1,0 +1,57 @@
+language: "my_meta_language"
+version: "1.0"
+
+structure:
+# Define the structure of the grammar
+  rules:
+    - type: 
+      - "sequence"
+      - "choice"
+      name: "a_name"
+# depending on the type, this can be a sequence or a choice
+# sequence --> elements // choice --> options
+      elements: # options:
+        - type: 
+          - "keyword"
+          - "symbol"
+          - "reference"
+# depending on the type, this can be a keyword, symbol, or reference
+# keyword --> value // symbol --> value // reference --> value (refferencing a target)
+          value: "a_value"
+          label:
+            - true
+            - false
+# depending ont the boolean value, this can have a label or not
+# if it has a label :
+            - name: "a_label_name"
+              type: 
+                - "alternative"
+                - "rule elements"
+
+  tokens:
+# Define the tokens used in the grammar
+# Each token has a name and a pattern, and some may be ignored
+    - name: "my_token"
+      pattern: "my_pattern"
+      ignored: false
+
+# Define the order of precedence and associativity for operators
+# Each operator has a name and a level
+  precedence:
+    - type:
+      - "rule"
+      - "token"
+      value: "a_value"
+      level: 1
+      direction:
+        - "left"
+        - "right"
+
+  conflicts:
+    - elements: ["modifiers", "annotated_type", "receiver_parameter"]
+
+  inline:
+    - "_name"
+    - "_simple_type"
+    - "_class_body_declaration"
+    - "_variable_initializer"

@@ -67,6 +67,7 @@ let rec string_of_element (e : element) : string =
          | Optional -> "?"
          | ZeroOrMore -> "*"
          | OneOrMore -> "+")
+  | CharacterClass s -> Printf.sprintf "[%s]" s
 
 let find_rule (g : grammar) (name : string) : rule option =
   List.find_opt (fun (r : rule) -> r.name = name) g.rules

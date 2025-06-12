@@ -23,6 +23,7 @@ let mk_rule ~name ~mods ~ret ~loc ~alts pos =
 %token <string> ACTION
 %token <string> SEMPRED
 %token <string> LABEL
+%token <string> CHAR_CLASS
 %token GRAMMAR LEXER PARSER
 %token COLON SEMICOLON EQUALS
 %token PIPE STAR PLUS QUESTION
@@ -212,6 +213,11 @@ element:
       | None -> e
       | Some s -> Ebnf(e, s)
     }
+  | chars = CHAR_CLASS
+    {
+      Printf.eprintf "Parser: Processing CHAR_CLASS: %s\n" chars;
+      CharacterClass(chars)
+    }
 
 element_base:
   | id = IDENT { NonTerminal id }
@@ -224,12 +230,13 @@ element_base:
       (* Create a group containing all elements within the parentheses *)
       Group alt.elements
     }
-  | LBRACKET alts = alternatives RBRACKET
-    {
-      let alt = List.hd alts in
-      (* Create a group containing all elements within the bracket *)
-      Group alt.elements
-    }
+  | LBRACKET content = CHAR_CLASS RBRACKET { CharacterClass content }
+  // | LBRACKET alts = alternatives RBRACKET
+  //   {
+  //     let alt = List.hd alts in
+  //     (* Create a group containing all elements within the bracket *)
+  //     Group alt.elements
+  //   }
 
 suffix:
   | QUESTION { Optional }
