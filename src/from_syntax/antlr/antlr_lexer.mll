@@ -93,6 +93,7 @@ let debug_token token =
     | DOT -> "DOT"
     | DOTSTAR -> "DOTSTAR"
     | EOF -> "EOF"
+    | CHAR_CLASS s -> "CHAR_CLASS(" ^ s ^ ")"
   );
   token
 }
@@ -122,8 +123,48 @@ rule token = parse
   | '{'                 { debug_token LBRACE }
   | '}'                 { debug_token RBRACE }
   | ','                 { debug_token COMMA }
-  | "->"                { debug_token ARROW }
-  | '[' ['A'-'Z''a'-'z''_']['A'-'Z''a'-'z''0'-'9''_'] + ']' as content  { debug_token (CHAR_CLASS content) }
+  | '-' '>'             { debug_token ARROW }
+  | '[' {
+      lexbuf.lex_curr_pos <- lexbuf.lex_curr_pos + 1; (* Move past the '[' character *)
+      let buf = Buffer.create 16 in
+      let rec collect_content lexbuf =
+        if lexbuf.lex_curr_pos >= Bytes.length lexbuf.lex_buffer then
+          lexing_error lexbuf '\000' (* End of buffer *)
+        else
+          let current_char = Bytes.get lexbuf.lex_buffer lexbuf.lex_curr_pos in
+          match current_char with
+          | 'A'..'Z' | 'a'..'z' | '0'..'9' | '_' | '-' | '"' | '\'' | '\\' ->
+              Buffer.add_char buf current_char;
+              lexbuf.lex_curr_pos <- lexbuf.lex_curr_pos + 1;
+              collect_content lexbuf
+          | ']' ->
+              lexbuf.lex_curr_pos <- lexbuf.lex_curr_pos + 1;
+              debug_token (CHAR_CLASS (Buffer.contents buf))
+          | _ ->
+              lexing_error lexbuf current_char
+      in
+      collect_content lexbuf
+  }
+  | '~' '['
+  {
+    lexbuf.lex_curr_pos <- lexbuf.lex_curr_pos + 1; (* Move past the '~' and '[' characters *)
+    let buf = Buffer.create 16 in
+    let rec collect_content lexbuf =
+      if lexbuf.lex_curr_pos >= Bytes.length lexbuf.lex_buffer then
+        lexing_error lexbuf '\000' (* End of buffer *)
+      else
+        let current_char = Bytes.get lexbuf.lex_buffer lexbuf.lex_curr_pos in
+        match current_char with
+        | ']' ->
+            lexbuf.lex_curr_pos <- lexbuf.lex_curr_pos + 1;
+            debug_token (CHAR_CLASS ("~[" ^ Buffer.contents buf ^ "]"))
+        | _ ->
+            Buffer.add_char buf current_char;
+            lexbuf.lex_curr_pos <- lexbuf.lex_curr_pos + 1;
+            collect_content lexbuf
+    in
+    collect_content lexbuf
+  }
   | '\''               { Buffer.clear string_buffer; string_literal '\'' lexbuf }
   | '"'                { Buffer.clear string_buffer; string_literal '"' lexbuf }
   | ['A'-'Z''a'-'z''_']['A'-'Z''a'-'z''0'-'9''_']* as id

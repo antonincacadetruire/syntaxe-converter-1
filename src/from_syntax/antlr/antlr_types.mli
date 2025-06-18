@@ -17,15 +17,20 @@ type element =
   | Ebnf of element * suffix
   | Group of element list
   | CharacterClass of string
+  | Wildcard  (* . *)
 
 and suffix =
   | Optional      (* ? *)
   | ZeroOrMore   (* * *)
   | OneOrMore    (* + *)
+  | ZeroOrMoreNonGreedy (* *? *)
+  | OneOrMoreNonGreedy (* + ? *)
+  | OptionalNonGreedy (* ?? *)
 
 type alternative = {
   predicate: string option;
   elements: element list;
+  command: string option;
 }
 
 type rule = {

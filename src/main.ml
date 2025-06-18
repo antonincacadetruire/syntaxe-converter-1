@@ -29,7 +29,7 @@ let string_of_modifiers = function
   | Private -> "private"
 
 let rec string_of_element = function
-  | Terminal s -> s
+  | Terminal s -> "'" ^ String.escaped s ^ "'"
   | NonTerminal s -> s
   | Action s -> s
   | SemanticPredicate s -> s
@@ -37,19 +37,24 @@ let rec string_of_element = function
   | Ebnf (e, Optional) -> string_of_element e ^ "?"
   | Ebnf (e, ZeroOrMore) -> string_of_element e ^ "*"
   | Ebnf (e, OneOrMore) -> string_of_element e ^ "+"
+  | Ebnf (e, ZeroOrMoreNonGreedy) -> string_of_element e ^ "*?"
+  | Ebnf (e, OneOrMoreNonGreedy) -> string_of_element e ^ "+?"
+  | Ebnf (e, OptionalNonGreedy) -> string_of_element e ^ "??"
   | Group es -> "(" ^ String.concat " " (List.map string_of_element es) ^ ")"
-
-(* let string_of_suffix = function
-  | Optional -> "?"
-  | ZeroOrMore -> "*"
-  | OneOrMore -> "+" *)
+  | CharacterClass s -> "[" ^ s ^ "]"
+  | Wildcard -> "."
 
 let string_of_alternative alt =
   let predicate_str = match alt.predicate with
     | Some p -> p ^ " : "
     | None -> ""
   in
-  predicate_str ^ String.concat " " (List.map string_of_element alt.elements)
+  let elements_str = String.concat " " (List.map string_of_element alt.elements) in
+  let command_str = match alt.command with
+    | Some cmd -> " -> " ^ cmd
+    | None -> ""
+  in
+  predicate_str ^ elements_str ^ command_str
 
 let string_of_rule rule =
   let modifiers_str = String.concat " " (List.map string_of_modifiers rule.modifiers) in
@@ -59,8 +64,13 @@ let string_of_rule rule =
     | None -> ""
   in
   let alternatives_str = String.concat "\n  | " (List.map string_of_alternative rule.alternatives) in
-  Printf.sprintf "%s %s%s%s :\n  %s;\n"
-    modifiers_str rule.name returns_str locals_str alternatives_str
+  Printf.sprintf "%s%s%s%s :\n  %s;"
+    (if modifiers_str <> "" then modifiers_str ^ " " else "")
+    rule.name
+    returns_str
+    locals_str
+    alternatives_str
+
 
 let string_of_option_decl (opt : option_decl) =
   Printf.sprintf "options {%s = %s;}\n" opt.name opt.value

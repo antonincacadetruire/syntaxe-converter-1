@@ -14,13 +14,10 @@ let parse_antlr_file filename =
   let ic = open_in filename in
   let src = really_input_string ic (in_channel_length ic) in
   close_in ic;
-  Printf.printf "\nStarting parsing process 2...\n";
   try
     let lexbuf = Lexing.from_string src in
     lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = filename };
-    Printf.printf "\nStarting parsing process 3...\n";
     let grammar = Antlr_parser.main Antlr_lexer.token lexbuf in
-    Printf.printf "\nStarting parsing process 4...\n";
     Ok grammar
   with e ->
     Error (Printexc.to_string e)
@@ -34,7 +31,6 @@ let print_grammar filename (grammar : grammar) =
 let parse_file filename =
   match detect_input_type filename with
   | ANTLR -> 
-    Printf.printf "Starting parsing process...\n";
       (match parse_antlr_file filename with
       | Ok grammar -> 
 

@@ -66,8 +66,12 @@ let rec string_of_element (e : element) : string =
         (match suffix with
          | Optional -> "?"
          | ZeroOrMore -> "*"
-         | OneOrMore -> "+")
+         | OneOrMore -> "+"
+         | ZeroOrMoreNonGreedy -> "*?"
+         | OneOrMoreNonGreedy -> "+?"
+         | OptionalNonGreedy -> "??" )
   | CharacterClass s -> Printf.sprintf "[%s]" s
+  | Wildcard -> "." 
 
 let find_rule (g : grammar) (name : string) : rule option =
   List.find_opt (fun (r : rule) -> r.name = name) g.rules

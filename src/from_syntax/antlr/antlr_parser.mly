@@ -1,6 +1,9 @@
 %{
 open Antlr_types
 
+(* Define a custom exception for syntax errors *)
+exception SyntaxError of string
+
 let mk_location startpos =
   {
     line = startpos.Lexing.pos_lnum;
@@ -46,19 +49,21 @@ main:
     channels = channel_section?
     rules = rules
     EOF
-    { 
+    {
       let g = decl in
-      { g with 
+      { g with
         options = (match opts with Some o -> o | None -> []);
         imports = (match imports with Some i -> i | None -> []);
         tokens = (match tokens with Some t -> t | None -> []);
         channels = (match channels with Some c -> c | None -> []);
-        rules = rules 
+        rules = rules
       }
     }
+  | error { raise (SyntaxError "Unexpected token in main rule") }
 
 grammar_decl:
   | g = raw_grammar_decl SEMICOLON { g }
+  | error { raise (SyntaxError "Unexpected token in grammar declaration") }
 
 raw_grammar_decl:
   | GRAMMAR name = IDENT
@@ -73,172 +78,132 @@ raw_grammar_decl:
     { { name; type_ = Parser;
         options = []; tokens = []; imports = [];
         channels = []; rules = [] } }
+  | error { raise (SyntaxError "Unexpected token in raw grammar declaration") }
 
 option_section:
-  | OPTIONS LBRACE opts = option_list RBRACE SEMICOLON?
-    { opts }
+  | OPTIONS LBRACE opts = option_list RBRACE SEMICOLON? { opts }
+  | error { raise (SyntaxError "Unexpected token in option section") }
 
 option_list:
-  | opts = separated_list(SEMICOLON, option_decl)  { opts }
+  | opts = separated_list(SEMICOLON, option_decl) { opts }
+  | error { raise (SyntaxError "Unexpected token in option list") }
 
 option_decl:
-  | name = IDENT EQUALS value = option_value SEMICOLON?
-    { {name; value} }
+  | name = IDENT EQUALS value = option_value SEMICOLON? { {name; value} }
+  | error { raise (SyntaxError "Unexpected token in option declaration") }
 
 option_value:
-  | id = IDENT   { id }
-  | s = STRING   { s }
-  | a = ACTION   { a }
-
+  | id = IDENT { id }
+  | s = STRING { s }
+  | a = ACTION { a }
+  | error { raise (SyntaxError "Unexpected token in option value") }
 
 import_section:
-  | IMPORT imports = separated_list(COMMA, STRING) SEMICOLON
-    { imports }
+  | IMPORT imports = separated_list(COMMA, STRING) SEMICOLON { imports }
+  | error { raise (SyntaxError "Unexpected token in import section") }
 
 channel_section:
-  | CHANNELS LBRACE channels = separated_list(COMMA, channel_decl) RBRACE
-    { channels }
+  | CHANNELS LBRACE channels = separated_list(COMMA, channel_decl) RBRACE { channels }
+  | error { raise (SyntaxError "Unexpected token in channel section") }
 
 channel_decl:
-  | name = IDENT
-    { name }
+  | name = IDENT { name }
+  | error { raise (SyntaxError "Unexpected token in channel declaration") }
 
 token_section:
-  | TOKENS LBRACE tokens = separated_list(COMMA, token_spec) RBRACE
-    { tokens }
+  | TOKENS LBRACE tokens = separated_list(COMMA, token_spec) RBRACE { tokens }
+  | error { raise (SyntaxError "Unexpected token in token section") }
 
 token_spec:
-  | name = IDENT LT t = IDENT GT
-    { { name; type_ = Some t } }
-  | name = IDENT
-    { { name; type_ = None } }
-
-mode_section:
-  | MODE id = IDENT SEMICOLON rules = rules
-    { {mode_name = id; mode_rules = rules} }
+  | name = IDENT LT t = IDENT GT { { name; type_ = Some t } }
+  | name = IDENT { { name; type_ = None } }
+  | error { raise (SyntaxError "Unexpected token in token specification") }
 
 rules:
   | r = rule rs = rules { r :: rs }
   | { [] }
+  | error { raise (SyntaxError "Unexpected token in rules") }
 
 rule:
-  | mods = modifier*
-    name = IDENT
-    ret = returns
-    loc = locals?
-    COLON
-    alts = alternatives
-    SEMICOLON
+  | mods = modifier* name = IDENT ret = returns loc = locals? COLON alts = alternatives SEMICOLON
     { mk_rule ~name ~mods ~ret ~loc ~alts $startpos }
-  | mods = modifier*
-    name = IDENT
-    loc = locals?
-    COLON
-    alts = alternatives
-    SEMICOLON
+  | mods = modifier* name = IDENT loc = locals? COLON alts = alternatives SEMICOLON
     { mk_rule ~name ~mods ~ret:[] ~loc ~alts $startpos }
-
+  | error { raise (SyntaxError "Unexpected token in rule") }
 
 modifier:
   | FRAGMENT { Fragment }
   | PUBLIC { Public }
   | PRIVATE { Private }
+  | error { raise (SyntaxError "Unexpected token in modifier") }
 
 command:
-  | ARROW s = ACTION { s }
-  | ARROW SKIP { "skip" }
-  | ARROW MORE { "more" }
-  | ARROW TYPE { "type" }
-  | ARROW CHANNEL { "channel" }
-  | ARROW s = IDENT { s }
+  | ARROW s = ACTION { Some s }
+  | ARROW SKIP { Some "skip" }
+  | ARROW MORE { Some "more" }
+  | ARROW TYPE { Some "type" }
+  | ARROW CHANNEL { Some "channel" }
+  | ARROW s = IDENT { Some s }
+  | { None }
+  | error { raise (SyntaxError "Unexpected token in command") }
 
 returns:
   | RETURNS LT id = IDENT GT { [id] }
+  | error { raise (SyntaxError "Unexpected token in returns") }
 
 locals:
-  | LOCALS LT IDENT GT { "local" } (* Single string for the local variable *)
+  | LOCALS LT IDENT GT { "local" }
+  | error { raise (SyntaxError "Unexpected token in locals") }
 
 alternatives:
   | alts = separated_nonempty_list(PIPE, alternative) { alts }
-
+  | { [] } (* Allow for empty alternatives *)
+  | error { raise (SyntaxError "Unexpected token in alternatives") }
 
 alternative:
-  | pred = predicate? elems = element+ _cmd = command?
-    {
-      {
-        predicate = pred;
-        elements = elems;
-      }
+  | pred = predicate? elems = element+ cmd = command {
+      { predicate = pred; elements = elems; command = cmd }
     }
+  | pred = predicate? elems = element+ {
+      { predicate = pred; elements = elems; command = None }
+    }
+  | error { raise (SyntaxError "Unexpected token in alternative") }
 
 predicate:
   | LBRACE pred = ACTION RBRACE QUESTION { pred }
+  | error { raise (SyntaxError "Unexpected token in predicate") }
 
 element:
-  | label = IDENT ARROW e = element_base s = suffix?
-    {
-      Printf.eprintf "Parser: Processing Label with ARROW: %s\n" label;
-      let e = match s with
-        | None -> e
-        | Some s -> Ebnf(e, s)
-      in
-      Label(label, e)
-    }
-  | label = IDENT EQUALS e = element_base s = suffix?
-    {
-      Printf.eprintf "Parser: Processing Label with EQUALS: %s\n" label;
-      let e = match s with
-        | None -> e
-        | Some s -> Ebnf(e, s)
-      in
-      Label(label, e)
-    }
-   | label = LABEL e = element_base s = suffix?
-    {
-      Printf.eprintf "Parser: Processing Label: %s\n" label;
-      let e = match s with
-        | None -> e
-        | Some s -> Ebnf(e, s)
-      in
-      Label(label, e)
-    }
-    | label = LABEL
-    {
-      Printf.eprintf "Parser: Processing Label: %s\n" label;
-      Label("", NonTerminal label)
-    }
-  | e = element_base s = suffix?
-    {
-      match s with
-      | None -> e
-      | Some s -> Ebnf(e, s)
-    }
-  | chars = CHAR_CLASS
-    {
-      Printf.eprintf "Parser: Processing CHAR_CLASS: %s\n" chars;
-      CharacterClass(chars)
-    }
+  | label = IDENT ARROW e = element_base s = suffix? { let e = match s with None -> e | Some s -> Ebnf(e, s) in Label(label, e) }
+  | label = IDENT EQUALS e = element_base s = suffix? { let e = match s with None -> e | Some s -> Ebnf(e, s) in Label(label, e) }
+  | label = LABEL e = element_base s = suffix? { let e = match s with None -> e | Some s -> Ebnf(e, s) in Label(label, e) }
+  | label = LABEL { Label("", NonTerminal label) }
+  | chars = CHAR_CLASS s = suffix?
+      {
+        match s with
+        | None -> CharacterClass(chars)  (* No suffix, just a character class *)
+        | Some suffix -> Ebnf(CharacterClass(chars), suffix)  (* Apply the suffix to the character class *)
+      }  
+  // | chars = CHAR_CLASS { CharacterClass(chars) }
+  | e = element_base s = suffix? { match s with None -> e | Some s -> Ebnf(e, s) }
+  | error { raise (SyntaxError "Unexpected token in element ") }
+
 
 element_base:
   | id = IDENT { NonTerminal id }
   | s = STRING { Terminal s }
   | a = ACTION { Action a }
   | s = SEMPRED { SemanticPredicate s }
-  | LPAREN alts = alternatives RPAREN
-    {
-      let alt = List.hd alts in
-      (* Create a group containing all elements within the parentheses *)
-      Group alt.elements
-    }
+  | LPAREN alts = alternatives RPAREN { let alt = List.hd alts in Group alt.elements }
   | LBRACKET content = CHAR_CLASS RBRACKET { CharacterClass content }
-  // | LBRACKET alts = alternatives RBRACKET
-  //   {
-  //     let alt = List.hd alts in
-  //     (* Create a group containing all elements within the bracket *)
-  //     Group alt.elements
-  //   }
+  | DOT { Wildcard } 
+  | error { raise (SyntaxError "Unexpected token in element base") }
 
 suffix:
-  | QUESTION { Optional }
-  | STAR { ZeroOrMore }
-  | PLUS { OneOrMore }
+  | QUESTION            { Optional }
+  | STAR                { ZeroOrMore }
+  | PLUS                { OneOrMore }
+  | STAR QUESTION       { ZeroOrMoreNonGreedy }
+  | PLUS QUESTION       { OneOrMoreNonGreedy }
+  | QUESTION QUESTION   { OptionalNonGreedy }
+  | error { raise (SyntaxError "Unexpected token in suffix") }
