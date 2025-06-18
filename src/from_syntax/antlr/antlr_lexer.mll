@@ -125,7 +125,7 @@ rule token = parse
   | ','                 { debug_token COMMA }
   | '-' '>'             { debug_token ARROW }
   | '[' {
-      lexbuf.lex_curr_pos <- lexbuf.lex_curr_pos + 1; (* Move past the '[' character *)
+      lexbuf.lex_curr_pos <- lexbuf.lex_curr_pos; (* Move past the '[' character *)
       let buf = Buffer.create 16 in
       let rec collect_content lexbuf =
         if lexbuf.lex_curr_pos >= Bytes.length lexbuf.lex_buffer then
@@ -133,7 +133,7 @@ rule token = parse
         else
           let current_char = Bytes.get lexbuf.lex_buffer lexbuf.lex_curr_pos in
           match current_char with
-          | 'A'..'Z' | 'a'..'z' | '0'..'9' | '_' | '-' | '"' | '\'' | '\\' ->
+          | 'A'..'Z' | 'a'..'z' | '0'..'9' | '_' | '-' | '+' | '"' | '\'' | '\\' | ' '  ->
               Buffer.add_char buf current_char;
               lexbuf.lex_curr_pos <- lexbuf.lex_curr_pos + 1;
               collect_content lexbuf
@@ -157,7 +157,7 @@ rule token = parse
         match current_char with
         | ']' ->
             lexbuf.lex_curr_pos <- lexbuf.lex_curr_pos + 1;
-            debug_token (CHAR_CLASS ("~[" ^ Buffer.contents buf ^ "]"))
+            debug_token (CHAR_CLASS ("~" ^ Buffer.contents buf))
         | _ ->
             Buffer.add_char buf current_char;
             lexbuf.lex_curr_pos <- lexbuf.lex_curr_pos + 1;

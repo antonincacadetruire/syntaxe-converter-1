@@ -7,6 +7,8 @@ structure:
     - type: 
       - "sequence"
       - "choice"
+      - "choice_sequence"
+      - "sequence_choice"
       name: "a_name"
 # depending on the type, this can be a sequence or a choice
 # sequence --> elements // choice --> options
@@ -27,6 +29,22 @@ structure:
               type: 
                 - "alternative"
                 - "rule elements"
+# depending on the type, this can be a sequence_choice or a choice_sequence
+# it has the elements part
+# and then, it gets a inside choices :
+      choices:
+        - type: 
+          - "sequence"
+          - "choice"
+          name: "a_choice_name"
+          elements: # options:
+            - type: 
+              - "keyword"
+              - "symbol"
+              - "reference"
+              value: "a_choice_value"
+              
+
 
   tokens:
 # Define the tokens used in the grammar

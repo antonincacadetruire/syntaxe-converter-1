@@ -28,8 +28,18 @@ let string_of_modifiers = function
   | Public -> "public"
   | Private -> "private"
 
+let antlr_escape s =
+  let buf = Buffer.create (String.length s) in
+  String.iter (function
+    | '\'' -> Buffer.add_string buf "\\'"
+    | '\"' -> Buffer.add_string buf "\""
+    | '\\' -> Buffer.add_string buf "\\\\"
+    | c -> Buffer.add_char buf c
+  ) s;
+  Buffer.contents buf
+
 let rec string_of_element = function
-  | Terminal s -> "'" ^ String.escaped s ^ "'"
+  | Terminal s -> "'" ^ antlr_escape s ^ "'"
   | NonTerminal s -> s
   | Action s -> s
   | SemanticPredicate s -> s
@@ -92,7 +102,6 @@ let convert_grammar_to_string grammar =
   let imports_str = String.concat "\n" (List.map (fun i -> "import " ^ i ^ ";") grammar.imports) in
   let channels_str = String.concat "\n" (List.map (fun c -> "channels " ^ c ^ ";") grammar.channels) in
   let rules_str = String.concat "\n" (List.map string_of_rule grammar.rules) in
-
   Printf.sprintf "grammar %s;\n%s\n%s\n%s\n%s\n%s"
     grammar.name
     options_str
@@ -101,6 +110,23 @@ let convert_grammar_to_string grammar =
     channels_str
     rules_str
 
+let log_json grammar =
+  let log_dir = "logs" in
+  let date = Unix.localtime (Unix.time ()) in
+  let log_path = Printf.sprintf "%s/%04d-%02d-%02d-%02d-%02d.json"
+    log_dir
+    (date.Unix.tm_year + 1900)
+    (date.Unix.tm_mon + 1)
+    date.Unix.tm_mday
+    date.Unix.tm_hour
+    date.Unix.tm_min
+  in
+  let oc = open_out log_path in
+  let json = Yojson.Safe.to_string (grammar_to_yojson grammar) in
+  output_string oc json;
+  close_out oc;
+  Printf.printf "Log written to %s\n" log_path ;
+  (log_path)
 
 
 let run from_opt to_opt input output =
@@ -109,7 +135,7 @@ let run from_opt to_opt input output =
     | None -> detect_format input
   in
   let result = match from with
-  | Some "antlr" ->
+    | Some "antlr" ->
       (match From_syntax.parse_file input with
       | Ok grammar ->
           (* Convert the grammar to a string format *)
@@ -118,12 +144,26 @@ let run from_opt to_opt input output =
           output_string oc grammar_string;
           close_out oc;
           Printf.printf "Output written to %s\n" output;
-          Ok ()
-      | Error msg ->
-          Error (`Msg msg))
-  | Some fmt ->
+
+          let logPath = log_json grammar in
+          let grammarOf_result =
+            Yojson.Safe.from_file logPath
+            |> grammar_of_yojson
+          in
+          (match grammarOf_result with
+          | Ok grammarOf ->
+              let oc = open_out "output2.g4" in
+              let grammar_string2 = convert_grammar_to_string grammarOf in
+              output_string oc grammar_string2;
+              close_out oc;
+              Printf.printf "Output written to %s\n" "output2.g4";
+              Ok ()
+          | Error msg ->
+              Error (`Msg ("Failed to parse JSON: " ^ msg)))
+      | Error msg -> Error (`Msg ("Parsing error: " ^ msg)))
+    | Some fmt ->
       Error (`Msg (Printf.sprintf "Unsupported input format: %s" fmt))
-  | None ->
+    | None ->
       Error (`Msg (Printf.sprintf "Could not detect format for file: %s" input))
   in
   match result, to_opt with
@@ -131,6 +171,7 @@ let run from_opt to_opt input output =
       Printf.printf "Target format will be: %s\n" fmt;
       result
   | _ -> result
+
 
 
 let cmd =
