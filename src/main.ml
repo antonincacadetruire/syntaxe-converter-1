@@ -45,8 +45,7 @@ let run from_opt to_opt input output =
   let result = match from with
     | Some "antlr" ->
       (match From_syntax.parse_file input with
-      | Ok grammar ->
-          (* Convert the grammar to a string format *)
+      | Ok (Antlr grammar) ->
           let grammar_string = convert_grammar_to_string_antlr grammar in
           let oc = open_out output in
           output_string oc grammar_string;
@@ -72,6 +71,8 @@ let run from_opt to_opt input output =
               Ok ()
           | Error msg ->
               Error (`Msg ("Failed to parse JSON: " ^ msg)))
+      | Ok (TreeSitter _) ->
+          Error (`Msg "Tree-sitter grammar is not supported for this operation")
       | Error msg -> Error (`Msg ("Parsing error: " ^ msg)))
     | Some "treesitter" -> Error (`Msg (Printf.sprintf "Unsupported treesitter format"))
       (* (match From_syntax.parse_file input with

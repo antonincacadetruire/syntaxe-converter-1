@@ -1,12 +1,15 @@
 open From_syntax_antlr
-open Antlr_types
-(* open From_syntax_tree_sitter
-open Tree_sitter_types *)
+open From_syntax_tree_sitter
+open Tree_sitter_types
 
 type input_type =
   | ANTLR
   | TREESITTER
   | Unsupported
+
+type any_grammar =
+  | Antlr of Antlr_types.grammar
+  | TreeSitter of Tree_sitter_types.grammar
 
 let detect_input_type filename =
   match Filename.extension filename with
@@ -26,7 +29,7 @@ let parse_antlr_file filename =
   with e ->
     Error (Printexc.to_string e)
   
-(* let parse_tree_sitter_file filename =
+let parse_tree_sitter_file filename =
   let ic = open_in filename in
   let src = really_input_string ic (in_channel_length ic) in
   close_in ic;
@@ -36,7 +39,7 @@ let parse_antlr_file filename =
     let grammar = Tree_sitter_parser.main Tree_sitter_lexer.token lexbuf in
     Ok grammar
   with e ->
-    Error (Printexc.to_string e) *)
+    Error (Printexc.to_string e)
 
 let print_grammar filename (grammar : grammar) =
   Printf.printf "Successfully parsed ANTLR grammar file: %s\n" filename;
@@ -49,23 +52,17 @@ let parse_file filename =
   | ANTLR -> 
       (match parse_antlr_file filename with
       | Ok grammar -> 
-
-          (* print_grammar filename grammar; *)
-          Ok grammar
+          Ok (Antlr grammar)
       | Error msg ->
           Printf.eprintf "Failed to parse ANTLR grammar: %s\n" msg;
           Error msg)
-  | TREESITTER -> let msg = Printf.sprintf "Unsupported file tree-sitter" in
-      Printf.eprintf "%s" msg;
-      Error msg
-    (* (match parse_ts_file filename with
+  | TREESITTER -> 
+    (match parse_tree_sitter_file filename with
       | Ok grammar -> 
-
-          (* print_grammar filename grammar; *)
-          Ok grammar
+          Ok (TreeSitter grammar)
       | Error msg ->
-          Printf.eprintf "Failed to parse ANTLR grammar: %s\n" msg;
-          Error msg) *)
+          Printf.eprintf "Failed to parse Tree-sitter grammar: %s\n" msg;
+          Error msg)
   | Unsupported ->
       let msg = Printf.sprintf "Unsupported file type: %s\n  Supported types:\n  .g4 (ANTLR)\n" 
         (Filename.extension filename) in
