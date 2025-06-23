@@ -1,0 +1,6 @@
+(library
+ (name to_syntax)
+ (public_name syntaxe-converter.to_syntax)
+ (preprocess (pps ppx_deriving_yojson))
+ (libraries unix from_syntax_antlr to_syntax_antlr to_syntax_tree_sitter)
+ (wrapped true))

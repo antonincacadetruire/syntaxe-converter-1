@@ -1,0 +1,8 @@
+(library
+ (name to_syntax_antlr)
+ (public_name syntaxe-converter.to_syntax.antlr)
+ (modules antlr)
+ (libraries
+  from_syntax
+  from_syntax_antlr
+  unix))

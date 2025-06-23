@@ -1,12 +1,12 @@
 (menhir
- (modules ts_parser))
+ (modules tree_sitter_parser))
 
 (ocamllex
- (modules ts_lexer))
+ (modules tree_sitter_lexer))
 
 (library
  (name from_syntax_tree_sitter)
   (preprocess (pps ppx_deriving_yojson))
  (public_name syntaxe-converter.from_syntax.tree_sitter)
- (modules ts_types ts_parser ts_lexer ts)
+ (modules tree_sitter_types tree_sitter_parser tree_sitter_lexer tree_sitter)
  (libraries menhirLib))

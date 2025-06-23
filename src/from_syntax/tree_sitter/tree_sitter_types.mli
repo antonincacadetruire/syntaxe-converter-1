@@ -45,6 +45,17 @@ type rule = {
   location: location;
 } [@@deriving yojson]
 
+type grammar_type =
+  | Parser
+  | Lexer
+  | Combined
+[@@deriving yojson]
+
+type option_decl = {
+  name: string;
+  value: string;
+} [@@deriving yojson]
+
 type tokens_spec = {
   name: string;
   type_: string option;
@@ -55,23 +66,12 @@ type mode_section = {
   mode_rules: rule list;
 } [@@deriving yojson]
 
-type reservation = {
-  reserved_words: string list;
-  reserved_rules: rule list;
-} [@@deriving yojson]
-
 type grammar = {
   name : string;
+  type_ : grammar_type;
+  options : option_decl list;
   tokens : tokens_spec list;
   imports : string list;
   channels : string list;
   rules : rule list;
-  extras : string; (* à modifier *) 
-  inline : rule list;
-  conflicts : rule list list;
-  externals : tokens_spec list;
-  precedences : string list list;
-  word: tokens_spec;
-  supertypes: rule list;
-  reserved: reservation;
 } [@@deriving yojson]

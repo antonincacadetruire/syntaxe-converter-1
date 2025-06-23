@@ -1,0 +1,1 @@
+val log_json : From_syntax_antlr.Antlr_types.grammar -> string -> (string, [> `Msg of string ]) result

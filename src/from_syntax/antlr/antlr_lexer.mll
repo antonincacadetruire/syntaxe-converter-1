@@ -11,11 +11,8 @@ let pos lexbuf =
 
 let lexing_error lexbuf c =
   let msg = Printf.sprintf "Unexpected character '%c' at %s" c (pos lexbuf) in
+  failwith msg
   (* Special case: if we see a #, treat it and everything after it on the line as a comment *)
-  if c = '#' then
-    failwith "Comment starting with # found - this is probably an ANTLR visitor label which is not supported"
-  else
-    failwith msg
 
 let update_loc lexbuf =
   let pos = lexbuf.lex_curr_p in

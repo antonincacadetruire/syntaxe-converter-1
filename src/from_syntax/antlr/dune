@@ -6,7 +6,8 @@
 
 (library
  (name from_syntax_antlr)
-  (preprocess (pps ppx_deriving_yojson))
  (public_name syntaxe-converter.from_syntax.antlr)
+ (preprocess (pps ppx_deriving_yojson))
  (modules antlr_types antlr_parser antlr_lexer antlr)
- (libraries menhirLib))
+ (libraries menhirLib)
+ (wrapped true))

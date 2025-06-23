@@ -1,0 +1,8 @@
+(library
+ (name to_syntax_tree_sitter)
+ (public_name syntaxe-converter.to_syntax.tree_sitter)
+ (modules tree_sitter)
+ (libraries
+  from_syntax
+  from_syntax_tree_sitter
+  unix))

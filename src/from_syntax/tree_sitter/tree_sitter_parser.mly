@@ -1,5 +1,5 @@
 %{
-open Ts_types
+open Tree_sitter_types
 
 (* Define a custom exception for syntax errors *)
 exception SyntaxError of string

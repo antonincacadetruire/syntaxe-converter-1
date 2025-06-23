@@ -3,4 +3,4 @@
  (public_name syntaxe-converter.from_syntax)
  (wrapped false)
  (modules from_syntax logic)
- (libraries from_syntax_antlr))
+ (libraries from_syntax_antlr from_syntax_tree_sitter))
