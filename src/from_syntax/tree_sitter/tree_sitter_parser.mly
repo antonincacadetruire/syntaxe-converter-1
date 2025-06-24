@@ -1,209 +1,119 @@
 %{
-open Tree_sitter_types
+  open Tree_sitter_types
 
-(* Define a custom exception for syntax errors *)
-exception SyntaxError of string
+  exception SyntaxError of string
 
-let mk_location startpos =
-  {
-    line = startpos.Lexing.pos_lnum;
-    column = startpos.Lexing.pos_cnum - startpos.Lexing.pos_bol;
-  }
-
-let mk_rule ~name ~mods ~ret ~loc ~alts pos =
-  {
-    name;
-    modifiers = mods;
-    returns = ret;
-    locals = loc;
-    alternatives = alts;
-    location = mk_location pos;
-  }
+  let mk_grammar ~name ~rules ~extras ~conflicts ~inline ~externals ~precedences ~word ~supertypes ~scope ~file_types ~injection_regex ~comments ~auto_alias =
+    {
+      name;
+      rules;
+      tokens = []; (* Not used in tree-sitter grammar.js *)
+      extras;
+      conflicts;
+      inline;
+      externals;
+      precedences;
+      word;
+      supertypes;
+      scope;
+      file_types;
+      injection_regex;
+      comments;
+      auto_alias;
+    }
 %}
 
 %token <string> IDENT
 %token <string> STRING
-%token <string> ACTION
-%token <string> SEMPRED
-%token <string> LABEL
-%token <string> CHAR_CLASS
-%token GRAMMAR LEXER PARSER
-%token COLON SEMICOLON EQUALS
-%token PIPE STAR PLUS QUESTION
-%token LT GT LPAREN RPAREN LBRACE RBRACE COMMA LBRACKET RBRACKET
-%token OPTIONS TOKENS CHANNELS IMPORT
-%token FRAGMENT PUBLIC PRIVATE RETURNS LOCALS
-%token MODE SKIP MORE TYPE CHANNEL
-%token ARROW
-%token DOT DOTSTAR
+%token <int> NUMBER
+%token TRUE FALSE NULL
+%token COLON SEMICOLON EQUALS ELLIPSIS
+%token LPAREN RPAREN LBRACE RBRACE COMMA LBRACKET RBRACKET
+%token MODULE EXPORTS GRAMMAR
+%token DOT FUNCTION CONST LET VAR
 %token EOF
 
 %start <grammar> main
 %%
 
 main:
-  | decl = grammar_decl
-    opts = option_section?
-    imports = import_section?
-    tokens = token_section?
-    channels = channel_section?
-    rules = rules
-    EOF
-    {
-      let g = decl in
-      { g with
-        options = (match opts with Some o -> o | None -> []);
-        imports = (match imports with Some i -> i | None -> []);
-        tokens = (match tokens with Some t -> t | None -> []);
-        channels = (match channels with Some c -> c | None -> []);
-        rules = rules
-      }
-    }
+  | js_statements grammar_export EOF { $2 }
   | error { raise (SyntaxError "Unexpected token in main rule") }
 
-grammar_decl:
-  | g = raw_grammar_decl SEMICOLON { g }
-  | error { raise (SyntaxError "Unexpected token in grammar declaration") }
+js_statements:
+  | /* empty */ { () }
+  | js_statement js_statements { () }
 
-raw_grammar_decl:
-  | GRAMMAR name = IDENT
-    { { name; type_ = Combined;
-        options = []; tokens = []; imports = [];
-        channels = []; rules = [] } }
-  | LEXER GRAMMAR name = IDENT
-    { { name; type_ = Lexer;
-        options = []; tokens = []; imports = [];
-        channels = []; rules = [] } }
-  | PARSER GRAMMAR name = IDENT
-    { { name; type_ = Parser;
-        options = []; tokens = []; imports = [];
-        channels = []; rules = [] } }
-  | error { raise (SyntaxError "Unexpected token in raw grammar declaration") }
+js_statement:
+  | CONST IDENT EQUALS js_value SEMICOLON { () }
+  | LET IDENT EQUALS js_value SEMICOLON { () }
+  | VAR IDENT EQUALS js_value SEMICOLON { () }
 
-option_section:
-  | OPTIONS LBRACE opts = option_list RBRACE SEMICOLON? { opts }
-  | error { raise (SyntaxError "Unexpected token in option section") }
+grammar_export:
+  | MODULE DOT EXPORTS EQUALS GRAMMAR LPAREN grammar_object RPAREN { $7 }
+  | error { raise (SyntaxError "Unexpected token in grammar export") }
 
-option_list:
-  | opts = separated_list(SEMICOLON, option_decl) { opts }
-  | error { raise (SyntaxError "Unexpected token in option list") }
+grammar_object:
+  | LBRACE updaters=grammar_fields RBRACE {
+      List.fold_left (fun g f -> f g)
+        (mk_grammar ~name:"" ~rules:[] ~extras:None ~conflicts:None ~inline:None ~externals:None ~precedences:None ~word:None ~supertypes:None ~scope:None ~file_types:None ~injection_regex:None ~comments:None ~auto_alias:None)
+        updaters
+    }
+  | error { raise (SyntaxError "Unexpected token in grammar object") }
 
-option_decl:
-  | name = IDENT EQUALS value = option_value SEMICOLON? { {name; value} }
-  | error { raise (SyntaxError "Unexpected token in option declaration") }
+grammar_fields:
+  | /* empty */ { [] }
+  | f=grammar_field rest=grammar_fields_tail { f :: rest }
 
-option_value:
-  | id = IDENT { id }
-  | s = STRING { s }
-  | a = ACTION { a }
-  | error { raise (SyntaxError "Unexpected token in option value") }
-
-import_section:
-  | IMPORT imports = separated_list(COMMA, STRING) SEMICOLON { imports }
-  | error { raise (SyntaxError "Unexpected token in import section") }
-
-channel_section:
-  | CHANNELS LBRACE channels = separated_list(COMMA, channel_decl) RBRACE { channels }
-  | error { raise (SyntaxError "Unexpected token in channel section") }
-
-channel_decl:
-  | name = IDENT { name }
-  | error { raise (SyntaxError "Unexpected token in channel declaration") }
-
-token_section:
-  | TOKENS LBRACE tokens = separated_list(COMMA, token_spec) RBRACE { tokens }
-  | error { raise (SyntaxError "Unexpected token in token section") }
-
-token_spec:
-  | name = IDENT LT t = IDENT GT { { name; type_ = Some t } }
-  | name = IDENT { { name; type_ = None } }
-  | error { raise (SyntaxError "Unexpected token in token specification") }
-
-rules:
-  | r = rule rs = rules { r :: rs }
+grammar_fields_tail:
+  | COMMA f=grammar_field rest=grammar_fields_tail { f :: rest }
   | { [] }
-  | error { raise (SyntaxError "Unexpected token in rules") }
 
-rule:
-  | mods = modifier* name = IDENT ret = returns loc = locals? COLON alts = alternatives SEMICOLON
-    { mk_rule ~name ~mods ~ret ~loc ~alts $startpos }
-  | mods = modifier* name = IDENT loc = locals? COLON alts = alternatives SEMICOLON
-    { mk_rule ~name ~mods ~ret:[] ~loc ~alts $startpos }
-  | error { raise (SyntaxError "Unexpected token in rule") }
-
-modifier:
-  | FRAGMENT { Fragment }
-  | PUBLIC { Public }
-  | PRIVATE { Private }
-  | error { raise (SyntaxError "Unexpected token in modifier") }
-
-command:
-  | ARROW s = ACTION { Some s }
-  | ARROW SKIP { Some "skip" }
-  | ARROW MORE { Some "more" }
-  | ARROW TYPE { Some "type" }
-  | ARROW CHANNEL { Some "channel" }
-  | ARROW s = IDENT { Some s }
-  | { None }
-  | error { raise (SyntaxError "Unexpected token in command") }
-
-returns:
-  | RETURNS LT id = IDENT GT { [id] }
-  | error { raise (SyntaxError "Unexpected token in returns") }
-
-locals:
-  | LOCALS LT IDENT GT { "local" }
-  | error { raise (SyntaxError "Unexpected token in locals") }
-
-alternatives:
-  | alts = separated_nonempty_list(PIPE, alternative) { alts }
-  | { [] } (* Allow for empty alternatives *)
-  | error { raise (SyntaxError "Unexpected token in alternatives") }
-
-alternative:
-  | pred = predicate? elems = element+ cmd = command {
-      { predicate = pred; elements = elems; command = cmd }
+// Each field updates the grammar record
+grammar_field:
+  | IDENT COLON js_value {
+      fun g -> match $1, $3 with
+        | "name", String s -> { g with name = s }
+        | "rules", Object rules -> { g with rules = Tree_sitter_types.parse_rules rules }
+        | "extras", Array extras -> { g with extras = Some (List.map Tree_sitter_types.parse_rule_ref extras) }
+        | "conflicts", Array conflicts -> { g with conflicts = Some (List.map Tree_sitter_types.parse_conflict conflicts) }
+        | "inline", Array inlines -> { g with inline = Some (List.map Tree_sitter_types.parse_rule_ref inlines) }
+        | "externals", Array externals -> { g with externals = Some (List.map Tree_sitter_types.parse_rule_ref externals) }
+        | "precedences", Array precedences -> { g with precedences = Some (List.flatten (List.map Tree_sitter_types.parse_precedence precedences)) }
+        | "word", String w -> { g with word = Some w }
+        | "supertypes", Array sups -> { g with supertypes = Some (List.map Tree_sitter_types.parse_rule_ref sups) }
+        | "scope", Array (v :: _) -> { g with scope = Some (Tree_sitter_types.parse_rule_ref v) }
+        | "scope", Array [] -> g
+        | "fileTypes", Array fts -> { g with file_types = Some (List.map Tree_sitter_types.parse_string fts) }
+        | "injectionRegex", String s -> { g with injection_regex = Some s }
+        | "comments", Array comments -> { g with comments = Some (List.map Tree_sitter_types.parse_string comments) }
+        | "autoAlias", Boolean true -> { g with auto_alias = Some true }
+        | "autoAlias", Boolean false -> { g with auto_alias = Some false }
+        | _ -> g
     }
-  | pred = predicate? elems = element+ {
-      { predicate = pred; elements = elems; command = None }
-    }
-  | error { raise (SyntaxError "Unexpected token in alternative") }
 
-predicate:
-  | LBRACE pred = ACTION RBRACE QUESTION { pred }
-  | error { raise (SyntaxError "Unexpected token in predicate") }
+// JS value parsing
+js_value:
+  | STRING { String $1 }
+  | NUMBER { Number $1 }
+  | TRUE { Boolean true }
+  | FALSE { Boolean false }
+  | NULL { Null }
+  | LBRACE js_properties RBRACE { Object $2 }
+  | LBRACKET js_elements RBRACKET { Array $2 }
+  | IDENT { Identifier $1 }
+  | FUNCTION LPAREN RPAREN LBRACE RBRACE { Function "function(){}" }
 
-element:
-  | label = IDENT ARROW e = element_base s = suffix? { let e = match s with None -> e | Some s -> Ebnf(e, s) in Label(label, e) }
-  | label = IDENT EQUALS e = element_base s = suffix? { let e = match s with None -> e | Some s -> Ebnf(e, s) in Label(label, e) }
-  | label = LABEL e = element_base s = suffix? { let e = match s with None -> e | Some s -> Ebnf(e, s) in Label(label, e) }
-  | label = LABEL { Label("", NonTerminal label) }
-  | chars = CHAR_CLASS s = suffix?
-      {
-        match s with
-        | None -> CharacterClass(chars)  (* No suffix, just a character class *)
-        | Some suffix -> Ebnf(CharacterClass(chars), suffix)  (* Apply the suffix to the character class *)
-      }  
-  // | chars = CHAR_CLASS { CharacterClass(chars) }
-  | e = element_base s = suffix? { match s with None -> e | Some s -> Ebnf(e, s) }
-  | error { raise (SyntaxError "Unexpected token in element ") }
+js_properties:
+  | js_property COMMA js_properties { $1 :: $3 }
+  | js_property { [$1] }
+  | { [] }
 
+js_property:
+  | IDENT COLON js_value { Property($1, $3) }
+  | STRING COLON js_value { Property($1, $3) }
 
-element_base:
-  | id = IDENT { NonTerminal id }
-  | s = STRING { Terminal s }
-  | a = ACTION { Action a }
-  | s = SEMPRED { SemanticPredicate s }
-  | LPAREN alts = alternatives RPAREN { let alt = List.hd alts in Group alt.elements }
-  | LBRACKET content = CHAR_CLASS RBRACKET { CharacterClass content }
-  | DOT { Wildcard } 
-  | error { raise (SyntaxError "Unexpected token in element base") }
-
-suffix:
-  | QUESTION            { Optional }
-  | STAR                { ZeroOrMore }
-  | PLUS                { OneOrMore }
-  | STAR QUESTION       { ZeroOrMoreNonGreedy }
-  | PLUS QUESTION       { OneOrMoreNonGreedy }
-  | QUESTION QUESTION   { OptionalNonGreedy }
-  | error { raise (SyntaxError "Unexpected token in suffix") }
+js_elements:
+  | js_value COMMA js_elements { $1 :: $3 }
+  | js_value { [$1] }
+  | { [] }

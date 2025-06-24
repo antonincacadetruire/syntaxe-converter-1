@@ -50,3 +50,10 @@ sould be changed to
 ```antlr
 grammar MyGrammar
 ```
+
+##  Tests :
+```bash
+dune exec syntaxe_converter tests/Java8Parser.g4 output.g4
+# or
+dune exec syntaxe_converter tests/grammar-Java.js output.js
+```

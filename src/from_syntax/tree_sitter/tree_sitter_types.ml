@@ -1,13 +1,31 @@
+type js_value =
+  | String of string
+  | Number of int
+  | Boolean of bool
+  | Null
+  | Object of js_property list
+  | Array of js_value list
+  | Identifier of string
+  | Function of string
+
+and js_property =
+  | Property of string * js_value
+
+type js_statement =
+  | Comment of string
+  | ConstDecl of string * js_value
+  | LetDecl of string * js_value
+  | VarDecl of string * js_value
+
 type location = {
   line: int;
   column: int;
-} [@@deriving yojson]
+}
 
 type modifier =
   | Fragment
   | Public
   | Private
-[@@deriving yojson]
 
 type element =
   | Terminal of string
@@ -18,60 +36,62 @@ type element =
   | Ebnf of element * suffix
   | Group of element list
   | CharacterClass of string
-  | Wildcard  (* . *)
-[@@deriving yojson]
+  | Wildcard
 
 and suffix =
-  | Optional      (* ? *)
-  | ZeroOrMore   (* * *)
-  | OneOrMore    (* + *)
-  | ZeroOrMoreNonGreedy (* *? *)
-  | OneOrMoreNonGreedy (* +? *)
-  | OptionalNonGreedy (* ?? *)
-[@@deriving yojson]
+  | Optional
+  | ZeroOrMore
+  | OneOrMore
+  | ZeroOrMoreNonGreedy
+  | OneOrMoreNonGreedy
+  | OptionalNonGreedy
 
 type alternative = {
   predicate: string option;
   elements: element list;
   command: string option;
-} [@@deriving yojson]
+}
 
 type rule = {
   name: string;
   modifiers: modifier list;
-  returns: string list; (* Updated from string option to string list *)
+  returns: string list;
   locals: string option;
   alternatives: alternative list;
   location: location;
-} [@@deriving yojson]
-
-type grammar_type =
-  | Parser
-  | Lexer
-  | Combined
-[@@deriving yojson]
+}
 
 type option_decl = {
   name: string;
   value: string;
-} [@@deriving yojson]
+}
 
 type tokens_spec = {
   name: string;
   type_: string option;
-} [@@deriving yojson]
-
-type mode_section = {
-  mode_name: string;
-  mode_rules: rule list;
-} [@@deriving yojson]
+}
 
 type grammar = {
-  name : string;
-  type_ : grammar_type;
-  options : option_decl list;
-  tokens : tokens_spec list;
-  imports : string list;
-  channels : string list;
-  rules : rule list;
-} [@@deriving yojson]
+  name: string;
+  rules: rule list;
+  tokens: tokens_spec list;
+  extras: string list option;
+  conflicts: string list list option;
+  inline: string list option;
+  externals: string list option;
+  precedences: (string * int) list option;
+  word: string option;
+  supertypes: string list option;
+  scope: string option;
+  file_types: string list option;
+  injection_regex: string option;
+  comments: string list option;
+  auto_alias: bool option;
+}
+
+(* Helper stubs for Menhir parser - to be implemented properly *)
+let parse_rules (_ : js_property list) = []
+let parse_rule_ref (_ : js_value) = ""
+let parse_conflict (_ : js_value) = []
+let parse_precedence (_ : js_value) = []
+let parse_string (_ : js_value) = ""

@@ -61,11 +61,6 @@ type tokens_spec = {
   type_: string option;
 } [@@deriving yojson]
 
-type mode_section = {
-  mode_name: string;
-  mode_rules: rule list;
-} [@@deriving yojson]
-
 type grammar = {
   name : string;
   type_ : grammar_type;
