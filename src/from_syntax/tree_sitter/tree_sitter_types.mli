@@ -7,6 +7,12 @@ type js_value =
   | Array of js_value list
   | Identifier of string
   | Function of string
+  | Regex of string
+  | FunctionCall of string * js_value list
+  | MemberAccess of js_value * string
+  | FunctionCallExpr of js_value * js_value list
+  | Spread of js_value
+
 
 and js_property =
   | Property of string * js_value

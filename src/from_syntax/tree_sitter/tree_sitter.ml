@@ -21,7 +21,8 @@ let parse_tree_sitter_to_tree (tree_sitter_source : string) : grammar =
       Lexing.pos_fname = "input";
       Lexing.pos_lnum = 1;
     };
-    Tree_sitter_parser.main Tree_sitter_lexer.token lexbuf
+    let (_stmts, grammar) = Tree_sitter_parser.main Tree_sitter_lexer.token lexbuf in
+    grammar
   with
   | Parsing.Parse_error ->
       let loc = {

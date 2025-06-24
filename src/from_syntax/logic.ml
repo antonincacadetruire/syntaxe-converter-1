@@ -36,7 +36,7 @@ let parse_tree_sitter_file filename =
   try
     let lexbuf = Lexing.from_string src in
     lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = filename };
-    let grammar = Tree_sitter_parser.main Tree_sitter_lexer.token lexbuf in
+    let (_stmts, grammar) = Tree_sitter_parser.main Tree_sitter_lexer.token lexbuf in
     Ok grammar
   with e ->
     Error (Printexc.to_string e)
