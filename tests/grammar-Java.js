@@ -1287,7 +1287,7 @@ module.exports = grammar({
     super: _ => 'super',
 
     // https://docs.oracle.com/javase/specs/jls/se8/html/jls-3.html#jls-IdentifierChars
-    identifier: _ => /[\p{XID_Start}_$][\p{XID_Continue}\u00A2_$]*/u,
+    identifier: _ => /[\p{XID_Start}_$][\p{XID_Continue}\u00A2_$]*/,
 
     line_comment: _ => token(prec(PREC.COMMENT, seq('//', /[^\n]*/))),
 
@@ -1311,9 +1311,9 @@ module.exports = grammar({
  *
  * @returns {SeqRule}
  */
-function sep1(rule, separator) {
-  return seq(rule, repeat(seq(separator, rule)));
-}
+// function sep1(rule, separator) {
+//   return seq(rule, repeat(seq(separator, rule)));
+// }
 
 /**
  * Creates a rule to match one or more of the rules separated by a comma

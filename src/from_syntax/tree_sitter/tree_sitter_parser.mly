@@ -32,14 +32,19 @@
 %token LPAREN RPAREN LBRACE RBRACE COMMA LBRACKET RBRACKET
 %token MODULE EXPORTS GRAMMAR UNDERSCORE
 %token DOT FUNCTION CONST LET VAR ARROW
-%token EOF
+%token EOF RETURN EQUALS_EQUALS STRICT_EQUALS QUESTION
 
 %start <(js_statement list * grammar)> main
 %%
 
 main:
-  | preamble=js_statements grammar_export EOF { (preamble, $2) }
+  | preamble=js_statements grammar_export opt_semicolon js_statements EOF { (preamble, $2) }
+  | preamble=js_statements EOF { (preamble, mk_grammar ~name:"" ~rules:[] ~extras:None ~conflicts:None ~inline:None ~externals:None ~precedences:None ~word:None ~supertypes:None ~scope:None ~file_types:None ~injection_regex:None ~comments:None ~auto_alias:None) }
   | error { raise (SyntaxError "Unexpected token in main rule") }
+
+opt_semicolon:
+  | SEMICOLON { () }
+  | { () }
 
 js_statements:
   | /* empty */ { [] }
@@ -49,10 +54,16 @@ js_statement:
   | CONST IDENT EQUALS js_value SEMICOLON { ConstDecl($2, $4) }
   | LET IDENT EQUALS js_value SEMICOLON { LetDecl($2, $4) }
   | VAR IDENT EQUALS js_value SEMICOLON { VarDecl($2, $4) }
+  | FUNCTION IDENT LPAREN parameter_list RPAREN LBRACE js_statements RBRACE { FunctionDecl($2, $4, $7) }
+  | RETURN js_value SEMICOLON { Return $2 }
 
 grammar_export:
-  | MODULE DOT EXPORTS EQUALS GRAMMAR LPAREN grammar_object RPAREN { $7 }
+  | MODULE DOT EXPORTS EQUALS GRAMMAR LPAREN grammar_object opt_trailing_comma RPAREN { $7 }
   | error { raise (SyntaxError "Unexpected token in grammar export") }
+
+opt_trailing_comma:
+  | COMMA { () }
+  | { () }
 
 grammar_object:
   | LBRACE updaters=grammar_fields RBRACE {
@@ -67,6 +78,7 @@ rule_ref:
   | DOLLAR DOT IDENT { Identifier $3 }
   | DOLLAR DOT TRUE { Identifier "true" }
   | DOLLAR DOT FALSE { Identifier "false" }
+  | DOLLAR DOT NULL { Identifier "null" }
 
 regex:
   | REGEX { Regex $1 }
@@ -79,8 +91,13 @@ array_elements:
   | regex COMMA array_elements { $1 :: $3 }
 
 grammar_fields:
-  | /* empty */ { [] }
-  | f=grammar_field rest=grammar_fields_tail { f :: rest }
+  | grammar_field_list opt_comma { $1 }
+  | { [] }
+
+grammar_field_list:
+  | grammar_field COMMA grammar_field_list { $1 :: $3 }
+  | grammar_field COMMA { [$1] }      /* allow trailing comma */
+  | grammar_field { [$1] }
 
 grammar_fields_tail:
   | COMMA f=grammar_field rest=grammar_fields_tail { f :: rest }
@@ -123,6 +140,7 @@ grammar_field:
     }
 
 js_value:
+  | arrow_function { $1 }
   | STRING { String $1 }
   | NUMBER { Number $1 }
   | rule_ref { $1 }
@@ -131,16 +149,64 @@ js_value:
   | NULL { Null }
   | LBRACE js_properties RBRACE { Object $2 }
   | LBRACKET js_elements RBRACKET { Array $2 }
-  | LBRACKET array_elements RBRACKET { Array $2 }
-  | IDENT { Identifier $1 }
   | function_call { $1 }
   | FUNCTION LPAREN RPAREN LBRACE RBRACE { Function "function(){}" }
   | REGEX { Regex $1 }
   | LPAREN js_value RPAREN { $2 }
   | member_expr { $1 }
+  | js_value QUESTION js_value COLON js_value { Ternary($1, $3, $5) }
+  | js_value STRICT_EQUALS js_value { FunctionCall("===", [$1; $3]) }
+  | js_value EQUALS_EQUALS js_value { FunctionCall("==", [$1; $3]) }
+
+
+arrow_function:
+  | parameter_list ARROW js_block { ArrowFunctionBlock($1, $3) }
+  | parameter_list ARROW js_value { ArrowFunction($1, $3) }
+
+js_block:
+  | LBRACE js_block_statements RBRACE { $2 }
+
+js_block_statements:
+  | /* empty */ { [] }
+  | js_block_statement js_block_statements { $1 :: $2 }
+
+js_block_statement:
+  | js_statement { $1 }
+  | js_expression SEMICOLON { ExprStmt($1) }
+
+js_expression:
+  | js_value { $1 }
+
+parameter_list:
+  | IDENT { [ParamIdent $1] }
+  | LBRACKET destructuring_elements RBRACKET { [ParamArray $2] }
+  | LPAREN parameter_list_inner RPAREN { $2 }
+  | UNDERSCORE { [ParamIdent "_"] }
+
+
+parameter_list_inner:
+  | /* empty */ { [] }
+  | parameter { [$1] }
+  | parameter COMMA parameter_list_inner { $1 :: $3 }
+
+parameter:
+  | IDENT { ParamIdent $1 }
+  | LBRACKET destructuring_elements RBRACKET { ParamArray $2 }
+  | UNDERSCORE { ParamIdent "_" }
+
+// Destructuring for array patterns
+// Only basic support for [a, b] style
+
+destructuring_elements:
+  | IDENT { [ParamIdent $1] }
+  | IDENT COMMA destructuring_elements { ParamIdent $1 :: $3 }
+  | { [] }
 
 member_expr:
   | IDENT { Identifier $1 }
+  | LBRACKET js_elements RBRACKET { Array $2 }
+  | LBRACE js_properties RBRACE { Object $2 }
+  | LPAREN js_value RPAREN { $2 }
   | member_expr DOT IDENT { MemberAccess($1, $3) }
   | member_expr function_call_args { FunctionCallExpr($1, $2) }
 
@@ -161,9 +227,17 @@ js_arguments_tail:
   | COMMA { [] }
 
 js_properties:
-  | js_property COMMA js_properties { $1 :: $3 }
-  | js_property { [$1] }
+  | nonempty_js_properties opt_comma { $1 }
   | { [] }
+
+nonempty_js_properties:
+  | js_property COMMA nonempty_js_properties { $1 :: $3 }
+  | js_property COMMA { [$1] }      /* allow trailing comma */
+  | js_property { [$1] }
+
+opt_comma:
+  | COMMA { () }
+  | { () }
 
 js_property:
   | IDENT COLON js_value { Property($1, $3) }
@@ -178,9 +252,9 @@ js_property:
   | FALSE COLON UNDERSCORE ARROW js_value { Property("false", $5) }
 
 js_elements:
-  | js_value COMMA js_elements { $1 :: $3 }
-  | js_value { [$1] }
-  | ELLIPSIS js_value COMMA js_elements { Spread($2) :: $4 }
-  | ELLIPSIS js_value { [Spread($2)] }
+  | js_value COMMA js_elements opt_comma { $1 :: $3 }
+  | js_value opt_comma { [$1] }
+  | ELLIPSIS js_value COMMA js_elements opt_comma { Spread($2) :: $4 }
+  | ELLIPSIS js_value COMMA opt_comma { [Spread($2)] } /* allow trailing comma after spread */
+  | ELLIPSIS js_value opt_comma { [Spread($2)] }
   | { [] }
-

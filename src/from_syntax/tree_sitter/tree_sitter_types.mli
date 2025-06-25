@@ -12,16 +12,32 @@ type js_value =
   | MemberAccess of js_value * string
   | FunctionCallExpr of js_value * js_value list
   | Spread of js_value
+  | ArrowFunction of js_param list * js_value
+  | ArrowFunctionBlock of js_param list * js_block
+  | Ternary of js_value * js_value * js_value
+  | Block of js_block
 
+and js_block = js_statement list
+
+and js_param =
+  | ParamIdent of string
+  | ParamArray of js_param list
+  | ParamObject of (string * js_param option) list
+  | ParamDefault of js_param * js_value
+  | ParamRest of js_param
 
 and js_property =
   | Property of string * js_value
 
-type js_statement =
+and js_statement =
   | Comment of string
   | ConstDecl of string * js_value
   | LetDecl of string * js_value
   | VarDecl of string * js_value
+  | FunctionDecl of string * js_param list * js_statement list
+  | Return of js_value
+  | ExprStmt of js_value
+
 
 type location = {
   line: int;
