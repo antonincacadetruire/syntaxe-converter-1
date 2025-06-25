@@ -34,7 +34,7 @@
 %token DOT FUNCTION CONST LET VAR ARROW
 %token EOF RETURN EQUALS_EQUALS STRICT_EQUALS QUESTION
 
-%start <(js_statement list * grammar)> main
+%start <(js_statement list * grammarTS)> main
 %%
 
 main:
@@ -244,12 +244,19 @@ js_property:
   | STRING COLON js_value { Property($1, $3) }
   | TRUE COLON js_value { Property("true", $3) }
   | FALSE COLON js_value { Property("false", $3) }
+  | NULL COLON js_value { Property("null", $3) }
   | IDENT COLON DOLLAR ARROW js_value { Property($1, $5) }
   | TRUE COLON DOLLAR ARROW js_value { Property("true", $5) }
   | FALSE COLON DOLLAR ARROW js_value { Property("false", $5) }
+  | NULL COLON DOLLAR ARROW js_value { Property("null", $5) }
   | IDENT COLON UNDERSCORE ARROW js_value { Property($1, $5) }
   | TRUE COLON UNDERSCORE ARROW js_value { Property("true", $5) }
   | FALSE COLON UNDERSCORE ARROW js_value { Property("false", $5) }
+  | NULL COLON UNDERSCORE ARROW js_value { Property("null", $5) }
+  | IDENT COLON UNDERSCORE ARROW js_block { Property($1, ArrowFunctionBlock([ParamIdent "_"], $5)) }
+  | TRUE COLON UNDERSCORE ARROW js_block { Property("true", ArrowFunctionBlock([ParamIdent "_"], $5)) }
+  | FALSE COLON UNDERSCORE ARROW js_block { Property("false", ArrowFunctionBlock([ParamIdent "_"], $5)) }
+  | NULL COLON UNDERSCORE ARROW js_block { Property("null", ArrowFunctionBlock([ParamIdent "_"], $5)) }
 
 js_elements:
   | js_value COMMA js_elements opt_comma { $1 :: $3 }

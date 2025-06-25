@@ -13,7 +13,7 @@ let format_location loc =
   Printf.sprintf "line %d, column %d" loc.line loc.column
 
 (* Main parsing function *)
-let parse_tree_sitter_to_tree (tree_sitter_source : string) : grammar =
+let parse_tree_sitter_to_tree (tree_sitter_source : string) : grammarTS =
   let lexbuf = Lexing.from_string tree_sitter_source in
   try
     lexbuf.Lexing.lex_curr_p <- { 
@@ -74,7 +74,7 @@ let rec string_of_element (e : element) : string =
   | CharacterClass s -> Printf.sprintf "[%s]" s
   | Wildcard -> "." 
 
-let find_rule (g : grammar) (name : string) : rule option =
+let find_rule (g : grammarTS) (name : string) : rule option =
   List.find_opt (fun (r : rule) -> r.name = name) g.rules
 
 let is_terminal (e : element) : bool = 
@@ -86,7 +86,7 @@ let is_token_rule (r : rule) : bool =
   List.exists ((=) Fragment) r.modifiers ||
   List.exists (fun (alt : alternative) -> List.exists is_terminal alt.elements) r.alternatives
 
-let collect_tokens (g : grammar) : string list =
+let collect_tokens (g : grammarTS) : string list =
   List.map (fun (t : tokens_spec) -> t.name) g.tokens @
   (g.rules
    |> List.filter is_token_rule

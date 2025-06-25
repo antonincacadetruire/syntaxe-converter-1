@@ -1,6 +1,10 @@
 module.exports = grammar({
   rules: {
-    foo: _ => { const x = 1; return x; },
-    bar: _ => { const y = 2; return y; }
+    this: _ => 'this',
+    super: _ => 'super',
+    true: _ => 'true',
+    false: _ => 'false',
+    null: _ => 'null',
+    undefined: _ => 'undefined',
   }
 });

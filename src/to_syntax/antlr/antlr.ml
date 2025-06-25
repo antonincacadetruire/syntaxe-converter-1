@@ -69,7 +69,7 @@ let string_of_tokens_spec (tokens : tokens_spec) =
      | Some t -> ":" ^ t
      | None -> ": No type specified")
 
-let convert_grammar_to_string_antlr grammar =
+let convert_grammar_to_string_antlr (grammar:grammar) =
   let options_str = String.concat "\n" (List.map string_of_option_decl grammar.options) in
   let tokens_str = String.concat "\n" (List.map string_of_tokens_spec grammar.tokens) in
   let imports_str = String.concat "\n" (List.map (fun i -> "import " ^ i ^ ";") grammar.imports) in

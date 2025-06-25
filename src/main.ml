@@ -4,6 +4,8 @@ open Antlr_types
 open To_syntax
 open To_syntax_antlr
 open Antlr
+open To_syntax_tree_sitter
+open Tree_sitter
 
 let from =
   let doc = "Source grammar format (e.g., ebnf, antlr, bison, etc.). If not provided, will be detected from file extension." in
@@ -52,7 +54,7 @@ let run from_opt to_opt input output =
           close_out oc;
           Printf.printf "Output written to %s\n" output;
 
-          let logPath_result = log_json grammar "ANTLR" in
+          let logPath_result = log_json (AntlrGrammar grammar) in
           let grammarOf_result =
             match logPath_result with
             | Ok logPath ->
@@ -62,7 +64,7 @@ let run from_opt to_opt input output =
             | Error _ -> Error "Unknown error"
           in
           (match grammarOf_result with
-          | Ok grammarOf ->
+          | Ok grammarOf->
               let oc = open_out "output2.g4" in
               let grammar_string2 = convert_grammar_to_string_antlr grammarOf in
               output_string oc grammar_string2;
@@ -74,32 +76,37 @@ let run from_opt to_opt input output =
       | Ok (TreeSitter _) ->
           Error (`Msg "Tree-sitter grammar is not supported for this operation")
       | Error msg -> Error (`Msg ("Parsing error: " ^ msg)))
-    | Some "treesitter" -> Error (`Msg (Printf.sprintf "Unsupported treesitter format"))
-      (* (match From_syntax.parse_file input with
-      | Ok grammar ->
-          (* Convert the grammar to a string format *)
-          let grammar_string = convert_grammar_to_string_antlr grammar in
+    | Some "treesitter" -> 
+      (match From_syntax.parse_file input with
+      | Ok (TreeSitter grammar) ->
+          let grammar_string = convert_grammar_to_string_tree_sitter grammar in
           let oc = open_out output in
           output_string oc grammar_string;
           close_out oc;
           Printf.printf "Output written to %s\n" output;
 
-          let logPath = log_json grammar in
+          let logPath_result = log_json (TreeSitterGrammar grammar) in
           let grammarOf_result =
-            Yojson.Safe.from_file logPath
-            |> grammar_of_yojson
+            match logPath_result with
+            | Ok logPath ->
+                Yojson.Safe.from_file logPath
+                |> grammarTS_of_yojson
+            | Error (`Msg msg) -> Error msg
+            | Error _ -> Error "Unknown error"
           in
           (match grammarOf_result with
           | Ok grammarOf ->
-              let oc = open_out "output2.g4" in
-              let grammar_string2 = convert_grammar_to_string_antlr grammarOf in
+              let oc = open_out "output3.g4" in
+              let grammar_string2 = convert_grammar_to_string_tree_sitter grammarOf in
               output_string oc grammar_string2;
               close_out oc;
               Printf.printf "Output written to %s\n" "output2.g4";
               Ok ()
           | Error msg ->
               Error (`Msg ("Failed to parse JSON: " ^ msg)))
-      | Error msg -> Error (`Msg ("Parsing error: " ^ msg))) *)
+      | Ok (Antlr _) ->
+          Error (`Msg "Tree-sitter grammar is not supported for this operation")
+      | Error msg -> Error (`Msg ("Parsing error: " ^ msg)))
     | Some fmt ->
       Error (`Msg (Printf.sprintf "Unsupported input format: %s" fmt))
     | None ->
@@ -110,8 +117,6 @@ let run from_opt to_opt input output =
       Printf.printf "Target format will be: %s\n" fmt;
       result
   | _ -> result
-
-
 
 let cmd =
   let doc = "Convert grammars between different formats" in

@@ -1,8 +1,13 @@
 open To_syntax_antlr
 open Antlr
+open To_syntax_tree_sitter
+open Tree_sitter
 
-let log_json grammar format_type =
-  match format_type with
-  | "ANTLR" -> (log_json_antlr grammar)
-  | "TREESITTER" -> Error (`Msg (Printf.sprintf "Implementation not done")) (* (log_json_tree_sitter grammar)*)
-  | _ -> Error (`Msg (Printf.sprintf "Unsupported format"))
+type grammarType =
+  | AntlrGrammar of From_syntax_antlr.Antlr_types.grammar
+  | TreeSitterGrammar of From_syntax_tree_sitter.Tree_sitter_types.grammarTS
+
+let log_json (grammar: grammarType) =
+  match grammar with
+  | AntlrGrammar g -> log_json_antlr g
+  | TreeSitterGrammar g -> log_json_tree_sitter g

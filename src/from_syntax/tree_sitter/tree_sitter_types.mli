@@ -16,8 +16,10 @@ type js_value =
   | ArrowFunctionBlock of js_param list * js_block
   | Ternary of js_value * js_value * js_value
   | Block of js_block
+[@@deriving yojson]
 
 and js_block = js_statement list
+[@@deriving yojson]
 
 and js_param =
   | ParamIdent of string
@@ -25,9 +27,11 @@ and js_param =
   | ParamObject of (string * js_param option) list
   | ParamDefault of js_param * js_value
   | ParamRest of js_param
+[@@deriving yojson]
 
 and js_property =
   | Property of string * js_value
+[@@deriving yojson]
 
 and js_statement =
   | Comment of string
@@ -37,17 +41,18 @@ and js_statement =
   | FunctionDecl of string * js_param list * js_statement list
   | Return of js_value
   | ExprStmt of js_value
-
+[@@deriving yojson]
 
 type location = {
   line: int;
   column: int;
-}
+} [@@deriving yojson]
 
 type modifier =
   | Fragment
   | Public
   | Private
+[@@deriving yojson]
 
 type element =
   | Terminal of string
@@ -59,6 +64,7 @@ type element =
   | Group of element list
   | CharacterClass of string
   | Wildcard
+[@@deriving yojson]
 
 and suffix =
   | Optional
@@ -67,12 +73,13 @@ and suffix =
   | ZeroOrMoreNonGreedy
   | OneOrMoreNonGreedy
   | OptionalNonGreedy
+[@@deriving yojson]
 
 type alternative = {
   predicate: string option;
   elements: element list;
   command: string option;
-}
+} [@@deriving yojson]
 
 type rule = {
   name: string;
@@ -81,19 +88,19 @@ type rule = {
   locals: string option;
   alternatives: alternative list;
   location: location;
-}
+} [@@deriving yojson]
 
 type option_decl = {
   name: string;
   value: string;
-}
+} [@@deriving yojson]
 
 type tokens_spec = {
   name: string;
   type_: string option;
-}
+} [@@deriving yojson]
 
-type grammar = {
+type grammarTS = {
   name: string;
   rules: rule list;
   tokens: tokens_spec list;
@@ -109,7 +116,7 @@ type grammar = {
   injection_regex: string option;
   comments: string list option;
   auto_alias: bool option;
-}
+} [@@deriving yojson]
 
 val parse_rules : js_property list -> rule list
 val parse_rule_ref : js_value -> string

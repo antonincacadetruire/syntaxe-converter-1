@@ -1,6 +1,5 @@
 open From_syntax_antlr
 open From_syntax_tree_sitter
-open Tree_sitter_types
 
 type input_type =
   | ANTLR
@@ -9,7 +8,7 @@ type input_type =
 
 type any_grammar =
   | Antlr of Antlr_types.grammar
-  | TreeSitter of Tree_sitter_types.grammar
+  | TreeSitter of Tree_sitter_types.grammarTS
 
 let detect_input_type filename =
   match Filename.extension filename with
@@ -41,11 +40,11 @@ let parse_tree_sitter_file filename =
   with e ->
     Error (Printexc.to_string e)
 
-let print_grammar filename (grammar : grammar) =
+(* let print_grammar filename (grammar : grammar) =
   Printf.printf "Successfully parsed ANTLR grammar file: %s\n" filename;
   Printf.printf "Found %d rules:\n" (List.length grammar.rules);
   let print_rule (r : rule) = Printf.printf "  Rule: %s\n" r.name in
-  List.iter print_rule grammar.rules
+  List.iter print_rule grammar.rules *)
 
 let parse_file filename =
   match detect_input_type filename with
