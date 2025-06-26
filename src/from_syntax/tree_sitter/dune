@@ -6,7 +6,8 @@
 
 (library
  (name from_syntax_tree_sitter)
-  (preprocess (pps ppx_deriving_yojson))
  (public_name syntaxe-converter.from_syntax.tree_sitter)
+ (preprocess (pps ppx_deriving_yojson))
  (modules tree_sitter_types tree_sitter_parser tree_sitter_lexer tree_sitter)
- (libraries menhirLib))
+ (libraries menhirLib)
+ (wrapped true))

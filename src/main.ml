@@ -1,6 +1,8 @@
 open Cmdliner
 open From_syntax_antlr
 open Antlr_types
+open From_syntax_tree_sitter
+open Tree_sitter_types
 open To_syntax
 open To_syntax_antlr
 open Antlr
@@ -96,11 +98,11 @@ let run from_opt to_opt input output =
           in
           (match grammarOf_result with
           | Ok grammarOf ->
-              let oc = open_out "output3.g4" in
+              let oc = open_out "output3.js" in
               let grammar_string2 = convert_grammar_to_string_tree_sitter grammarOf in
               output_string oc grammar_string2;
               close_out oc;
-              Printf.printf "Output written to %s\n" "output2.g4";
+              Printf.printf "Output written to %s\n" "output3.js";
               Ok ()
           | Error msg ->
               Error (`Msg ("Failed to parse JSON: " ^ msg)))

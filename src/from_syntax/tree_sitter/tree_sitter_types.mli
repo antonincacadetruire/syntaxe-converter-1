@@ -118,6 +118,7 @@ type grammarTS = {
   auto_alias: bool option;
 } [@@deriving yojson]
 
+
 val parse_rules : js_property list -> rule list
 val parse_rule_ref : js_value -> string
 val parse_conflict : js_value -> string list

@@ -1,4 +1,4 @@
-// Generated from /mnt/c/Users/anton/zone_de_travail/repositories/syntaxe-converter/output.g4 by ANTLR 4.13.1
+// Generated from /mnt/c/Users/anton/zone_de_travail/repositories/syntaxe-converter/output2.g4 by ANTLR 4.13.1
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.Token;
@@ -154,7 +154,7 @@ public class Java8ParserLexer extends Lexer {
 	}
 
 	@Override
-	public String getGrammarFileName() { return "output.g4"; }
+	public String getGrammarFileName() { return "output2.g4"; }
 
 	@Override
 	public String[] getRuleNames() { return ruleNames; }
