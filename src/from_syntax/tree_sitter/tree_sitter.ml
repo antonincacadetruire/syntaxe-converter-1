@@ -82,9 +82,17 @@ let is_terminal (e : element) : bool =
   | Terminal _ -> true
   | _ -> false
 
+let rec contains_terminal (symbol: symbol) : bool =
+  match symbol with
+  | Terminal _ -> true
+  | NonTerminal _ -> false
+  | Choice symbols | Sequence symbols -> List.exists contains_terminal symbols
+  | Repeat symbol | Optional symbol | Field (_, symbol) | Alias (symbol, _) -> contains_terminal symbol
+  | Rule rule -> contains_terminal (NonTerminal rule.name)
+
+
 let is_token_rule (r : rule) : bool =
-  List.exists ((=) Fragment) r.modifiers ||
-  List.exists (fun (alt : alternative) -> List.exists is_terminal alt.elements) r.alternatives
+  contains_terminal r.production
 
 let collect_tokens (g : grammarTS) : string list =
   List.map (fun (t : tokens_spec) -> t.name) g.tokens @

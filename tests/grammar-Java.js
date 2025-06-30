@@ -1311,9 +1311,9 @@ module.exports = grammar({
  *
  * @returns {SeqRule}
  */
-// function sep1(rule, separator) {
-//   return seq(rule, repeat(seq(separator, rule)));
-// }
+function sep1(rule, separator) {
+  return seq(rule, repeat(seq(separator, rule)));
+}
 
 /**
  * Creates a rule to match one or more of the rules separated by a comma

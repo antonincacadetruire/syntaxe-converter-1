@@ -106,38 +106,38 @@ grammar_fields_tail:
 grammar_field:
   | IDENT COLON js_value {
       fun g -> match $1, $3 with
-        | "name", String s -> { g with name = s }
-        | "rules", Object rules -> { g with rules = Tree_sitter_types.parse_rules rules }
-        | "extras", Array extras -> { g with extras = Some (List.map Tree_sitter_types.parse_rule_ref extras) }
-        | "conflicts", Array conflicts -> { g with conflicts = Some (List.map Tree_sitter_types.parse_conflict conflicts) }
-        | "inline", Array inlines -> { g with inline = Some (List.map Tree_sitter_types.parse_rule_ref inlines) }
-        | "externals", Array externals -> { g with externals = Some (List.map Tree_sitter_types.parse_rule_ref externals) }
-        | "precedences", Array precedences -> { g with precedences = Some (List.flatten (List.map Tree_sitter_types.parse_precedence precedences)) }
-        | "word", String w -> { g with word = Some w }
-        | "supertypes", Array sups -> { g with supertypes = Some (List.map Tree_sitter_types.parse_rule_ref sups) }
-        | "scope", Array (v :: _) -> { g with scope = Some (Tree_sitter_types.parse_rule_ref v) }
-        | "scope", Array [] -> g
-        | "fileTypes", Array fts -> { g with file_types = Some (List.map Tree_sitter_types.parse_string fts) }
-        | "injectionRegex", String s -> { g with injection_regex = Some s }
-        | "comments", Array comments -> { g with comments = Some (List.map Tree_sitter_types.parse_string comments) }
-        | "autoAlias", Boolean true -> { g with auto_alias = Some true }
-        | "autoAlias", Boolean false -> { g with auto_alias = Some false }
-        | _ -> g
-    }
-   | IDENT COLON DOLLAR ARROW js_value {
+      | "name", String s -> { g with name = s }
+      | "rules", Object rules -> { g with rules = parse_rules rules }
+      | "extras", Array extras -> { g with extras = Some (List.map parse_rule_ref_to_string extras) }
+      | "conflicts", Array conflicts -> { g with conflicts = Some (List.map parse_conflict conflicts) }
+      | "inline", Array inlines -> { g with inline = Some (List.map parse_rule_ref_to_string inlines) }
+      | "externals", Array externals -> { g with externals = Some (List.map parse_rule_ref_to_string externals) }
+      | "precedences", Array precedences -> { g with precedences = Some (List.flatten (List.map parse_precedence precedences)) }
+      | "word", String w -> { g with word = Some w }
+      | "supertypes", Array sups -> { g with supertypes = Some (List.map parse_rule_ref_to_string sups) }
+      | "scope", Array (v :: _) -> { g with scope = Some (parse_rule_ref_to_string v) }
+      | "scope", Array [] -> g
+      | "fileTypes", Array fts -> { g with file_types = Some (List.map parse_string fts) }
+      | "injectionRegex", String s -> { g with injection_regex = Some s }
+      | "comments", Array comments -> { g with comments = Some (List.map parse_string comments) }
+      | "autoAlias", Boolean true -> { g with auto_alias = Some true }
+      | "autoAlias", Boolean false -> { g with auto_alias = Some false }
+      | _ -> g
+  }
+  | IDENT COLON DOLLAR ARROW js_value {
       fun g -> match $1, $5 with
-        | "extras", Array extras -> { g with extras = Some (List.map Tree_sitter_types.parse_rule_ref extras) }
-        | "inline", Array inlines -> { g with inline = Some (List.map Tree_sitter_types.parse_rule_ref inlines) }
-        | "externals", Array externals -> { g with externals = Some (List.map Tree_sitter_types.parse_rule_ref externals) }
-        | "supertypes", Array sups -> { g with supertypes = Some (List.map Tree_sitter_types.parse_rule_ref sups) }
-        | "conflicts", Array conflicts -> { g with conflicts = Some (List.map Tree_sitter_types.parse_conflict conflicts) }
-        | _ -> g
-    }
-    | IDENT COLON DOLLAR ARROW rule_ref {
+      | "extras", Array extras -> { g with extras = Some (List.map parse_rule_ref_to_string extras) }
+      | "inline", Array inlines -> { g with inline = Some (List.map parse_rule_ref_to_string inlines) }
+      | "externals", Array externals -> { g with externals = Some (List.map parse_rule_ref_to_string externals) }
+      | "supertypes", Array sups -> { g with supertypes = Some (List.map parse_rule_ref_to_string sups) }
+      | "conflicts", Array conflicts -> { g with conflicts = Some (List.map parse_conflict conflicts) }
+      | _ -> g
+  }
+  | IDENT COLON DOLLAR ARROW rule_ref {
       fun g -> match $1, $5 with
-        | "word", Identifier s -> { g with word = Some s }
-        | _ -> g
-    }
+      | "word", Identifier s -> { g with word = Some s }
+      | _ -> g
+  }
 
 js_value:
   | arrow_function { $1 }

@@ -20,7 +20,6 @@ type js_value =
 
 and js_block = js_statement list
 [@@deriving yojson]
-
 and js_param =
   | ParamIdent of string
   | ParamArray of js_param list
@@ -28,11 +27,9 @@ and js_param =
   | ParamDefault of js_param * js_value
   | ParamRest of js_param
 [@@deriving yojson]
-
 and js_property =
   | Property of string * js_value
 [@@deriving yojson]
-
 and js_statement =
   | Comment of string
   | ConstDecl of string * js_value
@@ -42,17 +39,10 @@ and js_statement =
   | Return of js_value
   | ExprStmt of js_value
 [@@deriving yojson]
-
 type location = {
   line: int;
   column: int;
 } [@@deriving yojson]
-
-type modifier =
-  | Fragment
-  | Public
-  | Private
-[@@deriving yojson]
 
 type element =
   | Terminal of string
@@ -81,14 +71,24 @@ type alternative = {
   command: string option;
 } [@@deriving yojson]
 
-type rule = {
-  name: string;
-  modifiers: modifier list;
-  returns: string list;
-  locals: string option;
-  alternatives: alternative list;
-  location: location;
+type symbol =
+  | Terminal of string
+  | NonTerminal of string
+  (* | ExternalCall of string * symbol list *)
+  | Choice of symbol list
+  | Sequence of symbol list
+  | Repeat of symbol
+  | Optional of symbol
+  | Field of string * symbol
+  | Alias of symbol * string
+  | Rule of rule (* Add this line to include nested rules *)
+[@@deriving yojson]
+
+and rule = {
+  name : string;
+  production : symbol;
 } [@@deriving yojson]
+
 
 type option_decl = {
   name: string;
@@ -100,6 +100,12 @@ type tokens_spec = {
   type_: string option;
 } [@@deriving yojson]
 
+type external_function = {
+  name: string;
+  params: string list;
+  js_body: string option;  (* Optional JavaScript source *)
+} [@@deriving yojson]
+
 type grammarTS = {
   name: string;
   rules: rule list;
@@ -108,6 +114,7 @@ type grammarTS = {
   conflicts: string list list option;
   inline: string list option;
   externals: string list option;
+  (* external_functions: external_function list option; *)
   precedences: (string * int) list option;
   word: string option;
   supertypes: string list option;
@@ -120,7 +127,8 @@ type grammarTS = {
 
 
 val parse_rules : js_property list -> rule list
-val parse_rule_ref : js_value -> string
-val parse_conflict : js_value -> string list
+val parse_rule_ref : js_value -> symbol
+val parse_rule_ref_to_string : js_value -> string
+val parse_conflict: js_value -> string list
 val parse_precedence : js_value -> (string * int) list
 val parse_string : js_value -> string
