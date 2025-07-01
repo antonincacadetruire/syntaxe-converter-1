@@ -82,6 +82,7 @@ type symbol =
   | Field of string * symbol
   | Alias of symbol * string
   | Rule of rule (* Add this line to include nested rules *)
+  | FunctionCall  of string * symbol list
 [@@deriving yojson]
 
 and rule = {

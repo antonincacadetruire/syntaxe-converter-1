@@ -74,14 +74,14 @@ type alternative = {
 type symbol =
   | Terminal of string
   | NonTerminal of string
-  (* | ExternalCall of string * symbol list *)
   | Choice of symbol list
   | Sequence of symbol list
   | Repeat of symbol
   | Optional of symbol
   | Field of string * symbol
   | Alias of symbol * string
-  | Rule of rule (* Add this line to include nested rules *)
+  | Rule of rule
+  | FunctionCall  of string * symbol list
 [@@deriving yojson]
 
 and rule = {
@@ -198,70 +198,65 @@ let string_of_js_property (prop: js_property) : string =
 let rec parse_element (elem: js_property) : symbol =
   let elem_str = string_of_js_property elem in
   match elem with
-  | Property(_,_, String s) -> Terminal s
-  | Property(_,_, Identifier s) -> NonTerminal s
-  | Property(_,_, Regex r) -> Terminal (Printf.sprintf "/%s/" r)
-  | Property(_,_, Object nested) -> parse_element (Property("","", Object nested))
-  | Property(_,_, Array elements) -> 
-      let elements_as_props = List.map (fun e -> Property("","", e)) elements in
+  | Property(_, _, String s) -> Terminal s
+  | Property(_, _, Identifier s) -> NonTerminal s
+  | Property(_, _, Regex r) -> Terminal (Printf.sprintf "/%s/" r)
+  | Property(_, _, Object nested) -> parse_element (Property("", "", Object nested))
+  | Property(_, _, Array elements) ->
+      let elements_as_props = List.map (fun e -> Property("", "", e)) elements in
       Choice (List.map parse_element elements_as_props)
-  | Property(_,_, FunctionCall("repeat", [arg])) -> Repeat (parse_element (Property("","", arg)))
-  | Property(_,_, FunctionCall("optional", [arg])) -> Optional (parse_element (Property("","", arg)))
-  | Property(_,_, FunctionCall("choice", args)) ->
-      let elements_as_props = List.map (fun e -> Property("","", e)) args in
+  | Property(_, _, FunctionCall("repeat", [arg])) -> Repeat (parse_element (Property("", "", arg)))
+  | Property(_, _, FunctionCall("optional", [arg])) -> Optional (parse_element (Property("", "", arg)))
+  | Property(_, _, FunctionCall("choice", args)) ->
+      let elements_as_props = List.map (fun e -> Property("", "", e)) args in
       Choice (List.map parse_element elements_as_props)
-  | Property(_,_, FunctionCall("seq", args)) ->
-      let elements_as_props = List.map (fun e -> Property("","", e)) args in
+  | Property(_, _, FunctionCall("seq", args)) ->
+      let elements_as_props = List.map (fun e -> Property("", "", e)) args in
       Sequence (List.map parse_element elements_as_props)
-  | Property(_,_, FunctionCall("alias", [arg; String alias])) -> 
-      Alias (parse_element (Property("","", arg)), alias)
-  | Property(_,_, FunctionCall("field", [String name; arg])) -> 
-      Field (name, parse_element (Property("","", arg)))
-  | Property(_,_, FunctionCall("token", [arg])) ->
-      parse_element (Property("","", arg))
-  | Property(_,_, FunctionCall("prec", [_; arg])) ->
-      parse_element (Property("","", arg))
-  | Property(_,_, FunctionCallExpr(MemberAccess(Identifier "token", "immediate"), [FunctionCall("prec", [_; Regex r])])) ->
-      (* Handle token.immediate(prec(1, /.../)) pattern *)
+  | Property(_, _, FunctionCall("alias", [arg; String alias])) ->
+      Alias (parse_element (Property("", "", arg)), alias)
+  | Property(_, _, FunctionCall("field", [String name; arg])) ->
+      Field (name, parse_element (Property("", "", arg)))
+  | Property(_, _, FunctionCall("token", [arg])) ->
+      parse_element (Property("", "", arg))
+  | Property(_, _, FunctionCall("prec", [_; arg])) ->
+      parse_element (Property("", "", arg))
+  | Property(_, _, FunctionCallExpr(MemberAccess(Identifier "token", "immediate"), [FunctionCall("prec", [_; Regex r])])) ->
       Terminal (Printf.sprintf "/%s/" r)
-  | Property(_,_, FunctionCallExpr(MemberAccess(Identifier "prec", _), [prec; seq])) ->
-      (* Handle prec.right(PREC.ASSIGN, seq(...)) pattern *)
-      let prec_sym = parse_element (Property("","", prec)) in
-      let seq_sym = parse_element (Property("","", seq)) in
+  | Property(_, _, FunctionCallExpr(MemberAccess(Identifier "prec", _), [prec; seq])) ->
+      let prec_sym = parse_element (Property("", "", prec)) in
+      let seq_sym = parse_element (Property("", "", seq)) in
       Sequence [prec_sym; seq_sym]
-  | Property(_,_,Spread(FunctionCallExpr(MemberAccess(Array operators, "map"), 
+  | Property(_, _, Spread(FunctionCallExpr(MemberAccess(Array operators, "map"),
       [ArrowFunction([ParamArray([ParamIdent _; ParamIdent _])], body)]))) ->
-      (* Handle spread of mapped operators pattern *)
-      Choice (List.map (fun op -> 
+      Choice (List.map (fun op ->
         match op with
         | Array [String _; MemberAccess(Identifier "PREC", prec_level)] ->
             let prec_sym = NonTerminal prec_level in
-            let body_sym = parse_element (Property("","", body)) in
+            let body_sym = parse_element (Property("", "", body)) in
             Sequence [prec_sym; body_sym]
         | _ -> failwith "Invalid operator mapping format"
       ) operators)
-  | Property(_,_,ArrowFunction(_, body)) ->
-      (* Handle arrow function patterns *)
-      let body_sym = parse_element (Property("","", body)) in
+  | Property(_, _, ArrowFunction(_, body)) ->
+      let body_sym = parse_element (Property("", "", body)) in
       Sequence [Terminal "=>"; body_sym]
-  | Property(_,_,FunctionCallExpr(func, args)) ->
-      (* Handle general function call expressions *)
-      let func_sym = parse_element (Property("","", func)) in
-      let args_syms = List.map (fun arg -> parse_element (Property("","", arg))) args in
+  | Property(_, _, FunctionCallExpr(func, args)) ->
+      let func_sym = parse_element (Property("", "", func)) in
+      let args_syms = List.map (fun arg -> parse_element (Property("", "", arg))) args in
       Sequence (func_sym :: args_syms)
-  | Property(_,_,MemberAccess(Identifier _, prop)) ->
-      (* Handle simple member access *)
+  | Property(_, _, MemberAccess(Identifier _, prop)) ->
       Terminal prop
-  | Property(_,_,MemberAccess(obj, prop)) ->
-      (* Handle complex member access *)
-      let obj_sym = parse_element (Property("","", obj)) in
+  | Property(_, _, MemberAccess(obj, prop)) ->
+      let obj_sym = parse_element (Property("", "", obj)) in
       Sequence [obj_sym; Terminal prop]
-  | Property(_,_,FunctionCall(_, args)) ->
-      (* General function call fallback *)
-      let args_as_props = List.map (fun arg -> Property("","", arg)) args in
-      Sequence (List.map parse_element args_as_props)
-  | _ -> 
+  | Property(_, _, FunctionCall(name, args)) ->
+      let args_syms = List.map (fun arg -> parse_element (Property("", "", arg))) args in
+      FunctionCall (name, args_syms) (* Directly represent as a function call *)
+  | _ ->
       failwith (Printf.sprintf "Failed to parse grammar element: %s" elem_str)
+
+
+
 
 let parse_alternative (alt: js_property) : symbol =
   match alt with

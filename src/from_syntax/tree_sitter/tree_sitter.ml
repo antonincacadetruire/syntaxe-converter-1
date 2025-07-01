@@ -89,6 +89,7 @@ let rec contains_terminal (symbol: symbol) : bool =
   | Choice symbols | Sequence symbols -> List.exists contains_terminal symbols
   | Repeat symbol | Optional symbol | Field (_, symbol) | Alias (symbol, _) -> contains_terminal symbol
   | Rule rule -> contains_terminal (NonTerminal rule.name)
+  | FunctionCall (_, args) -> List.exists contains_terminal args
 
 
 let is_token_rule (r : rule) : bool =
