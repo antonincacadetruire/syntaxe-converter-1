@@ -3,7 +3,7 @@
 
   exception SyntaxError of string
 
-  let mk_grammar ~name ~rules ~extras ~conflicts ~inline ~externals ~precedences ~word ~supertypes ~scope ~file_types ~injection_regex ~comments ~auto_alias =
+  let mk_grammar ~name ~rules ~extras ~conflicts ~inline ~externals ~precedences ~word ~supertypes ~scope ~file_types ~injection_regex ~comments ~auto_alias ~javascript =
     {
       name;
       rules;
@@ -20,6 +20,7 @@
       injection_regex;
       comments;
       auto_alias;
+      javascript;
     }
 %}
 
@@ -38,9 +39,17 @@
 %%
 
 main:
-  | preamble=js_statements grammar_export opt_semicolon js_statements EOF { (preamble, $2) }
-  | preamble=js_statements EOF { (preamble, mk_grammar ~name:"" ~rules:[] ~extras:None ~conflicts:None ~inline:None ~externals:None ~precedences:None ~word:None ~supertypes:None ~scope:None ~file_types:None ~injection_regex:None ~comments:None ~auto_alias:None) }
+  | preamble=js_statements grammar_export opt_semicolon js_statements EOF {
+      let grammar = $2 in
+      let javascript = List.map js_statement_to_js (preamble @ $4) in
+      (preamble @ $4, { grammar with javascript = Some javascript })
+    }
+  | preamble=js_statements EOF {
+      let javascript = List.map js_statement_to_js preamble in
+      (preamble, { (mk_grammar ~name:"" ~rules:[] ~extras:None ~conflicts:None ~inline:None ~externals:None ~precedences:None ~word:None ~supertypes:None ~scope:None ~file_types:None ~injection_regex:None ~comments:None ~auto_alias:None ~javascript:None) with javascript = Some javascript })
+    }
   | error { raise (SyntaxError "Unexpected token in main rule") }
+
 
 opt_semicolon:
   | SEMICOLON { () }
@@ -54,7 +63,7 @@ js_statement:
   | CONST IDENT EQUALS js_value SEMICOLON { ConstDecl($2, $4) }
   | LET IDENT EQUALS js_value SEMICOLON { LetDecl($2, $4) }
   | VAR IDENT EQUALS js_value SEMICOLON { VarDecl($2, $4) }
-  | FUNCTION IDENT LPAREN parameter_list RPAREN LBRACE js_statements RBRACE { FunctionDecl($2, $4, $7) }
+  | FUNCTION IDENT parameter_list LBRACE js_statements RBRACE { FunctionDecl($2, $3, $5) }
   | RETURN js_value SEMICOLON { Return $2 }
 
 grammar_export:
@@ -69,7 +78,7 @@ grammar_object:
   | LBRACE updaters=grammar_fields RBRACE {
     
       List.fold_left (fun g f -> f g)
-        (mk_grammar ~name:"" ~rules:[] ~extras:None ~conflicts:None ~inline:None ~externals:None ~precedences:None ~word:None ~supertypes:None ~scope:None ~file_types:None ~injection_regex:None ~comments:None ~auto_alias:None)
+        (mk_grammar ~name:"" ~rules:[] ~extras:None ~conflicts:None ~inline:None ~externals:None ~precedences:None ~word:None ~supertypes:None ~scope:None ~file_types:None ~injection_regex:None ~comments:None ~auto_alias:None ~javascript:None)
         updaters
     }
   | error { raise (SyntaxError "Unexpected token in grammar object") }
@@ -178,7 +187,6 @@ js_expression:
   | js_value { $1 }
 
 parameter_list:
-  | IDENT { [ParamIdent $1] }
   | LBRACKET destructuring_elements RBRACKET { [ParamArray $2] }
   | LPAREN parameter_list_inner RPAREN { $2 }
   | UNDERSCORE { [ParamIdent "_"] }
@@ -240,24 +248,24 @@ opt_comma:
   | { () }
 
 js_property:
-  | IDENT COLON js_value { Property($1, $3) }
-  | STRING COLON js_value { Property($1, $3) }
-  | TRUE COLON js_value { Property("true", $3) }
-  | FALSE COLON js_value { Property("false", $3) }
-  | NULL COLON js_value { Property("null", $3) }
-  | IDENT COLON DOLLAR ARROW js_value { Property($1, $5) }
-  | TRUE COLON DOLLAR ARROW js_value { Property("true", $5) }
-  | FALSE COLON DOLLAR ARROW js_value { Property("false", $5) }
-  | NULL COLON DOLLAR ARROW js_value { Property("null", $5) }
-  | IDENT COLON UNDERSCORE ARROW js_value { Property($1, $5) }
-  | TRUE COLON UNDERSCORE ARROW js_value { Property("true", $5) }
-  | FALSE COLON UNDERSCORE ARROW js_value { Property("false", $5) }
-  | NULL COLON UNDERSCORE ARROW js_value { Property("null", $5) }
-  | IDENT COLON UNDERSCORE ARROW js_block { Property($1, ArrowFunctionBlock([ParamIdent "_"], $5)) }
-  | TRUE COLON UNDERSCORE ARROW js_block { Property("true", ArrowFunctionBlock([ParamIdent "_"], $5)) }
-  | FALSE COLON UNDERSCORE ARROW js_block { Property("false", ArrowFunctionBlock([ParamIdent "_"], $5)) }
-  | NULL COLON UNDERSCORE ARROW js_block { Property("null", ArrowFunctionBlock([ParamIdent "_"], $5)) }
-
+  | IDENT COLON js_value { Property($1, "", $3) }
+  | STRING COLON js_value { Property($1, "", $3) }
+  | TRUE COLON js_value { Property("true", "", $3) }
+  | FALSE COLON js_value { Property("false", "", $3) }
+  | NULL COLON js_value { Property("null", "", $3) }
+  | IDENT COLON DOLLAR ARROW js_value { Property($1, "$", $5) }
+  | TRUE COLON DOLLAR ARROW js_value { Property("true", "$", $5) }
+  | FALSE COLON DOLLAR ARROW js_value { Property("false", "$", $5) }
+  | NULL COLON DOLLAR ARROW js_value { Property("null", "$", $5) }
+  | IDENT COLON UNDERSCORE ARROW js_value { Property($1, "_", $5) }
+  | TRUE COLON UNDERSCORE ARROW js_value { Property("true", "_", $5) }
+  | FALSE COLON UNDERSCORE ARROW js_value { Property("false", "_", $5) }
+  | NULL COLON UNDERSCORE ARROW js_value { Property("null", "_", $5) }
+  | IDENT COLON UNDERSCORE ARROW js_block { Property($1, "_", ArrowFunctionBlock([ParamIdent "_"], $5)) }
+  | TRUE COLON UNDERSCORE ARROW js_block { Property("true", "_", ArrowFunctionBlock([ParamIdent "_"], $5)) }
+  | FALSE COLON UNDERSCORE ARROW js_block { Property("false","_", ArrowFunctionBlock([ParamIdent "_"], $5)) }
+  | NULL COLON UNDERSCORE ARROW js_block { Property("null", "_", ArrowFunctionBlock([ParamIdent "_"], $5)) }
+  
 js_elements:
   | js_value COMMA js_elements opt_comma { $1 :: $3 }
   | js_value opt_comma { [$1] }

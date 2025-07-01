@@ -1,0 +1,66 @@
+{
+    "name": "",
+    "rules": [
+        {
+            "name": "this",
+            "production": [
+                "Terminal",
+                "this"
+            ]
+        },
+        {
+            "name": "super",
+            "production": [
+                "Terminal",
+                "super"
+            ]
+        },
+        {
+            "name": "true",
+            "production": [
+                "Terminal",
+                "true"
+            ]
+        },
+        {
+            "name": "false",
+            "production": [
+                "Terminal",
+                "false"
+            ]
+        },
+        {
+            "name": "null",
+            "production": [
+                "Terminal",
+                "null"
+            ]
+        },
+        {
+            "name": "undefined",
+            "production": [
+                "Terminal",
+                "undefined"
+            ]
+        }
+    ],
+    "tokens": [],
+    "extras": null,
+    "conflicts": null,
+    "inline": null,
+    "externals": null,
+    "precedences": null,
+    "word": null,
+    "supertypes": null,
+    "scope": null,
+    "file_types": null,
+    "injection_regex": null,
+    "comments": null,
+    "auto_alias": null,
+    "javascript": [
+        "const DIGITS = token(choice(\"0\", seq(/[1-9]/, optional(seq(optional(\"_\"), sep1(/[0-9]+/, /_+/))))));",
+        "const DECIMAL_DIGITS = token(sep1(/[0-9]+/, \"_\"));",
+        "const HEX_DIGITS = token(sep1(/[A-Fa-f0-9]+/, \"_\"));",
+        "function sep1(rule, separator) {return seq(rule, repeat(seq(separator, rule)));}"
+    ]
+}

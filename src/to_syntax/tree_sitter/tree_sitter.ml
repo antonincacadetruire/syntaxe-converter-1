@@ -10,7 +10,7 @@ let rec string_of_js_value = function
   | Object props ->
       let props_str =
         props
-        |> List.map (function Property (k, v) -> Printf.sprintf "%s: %s" (Printf.sprintf "\"%s\"" k) (string_of_js_value v))
+        |> List.map (function Property (k, a, v) -> Printf.sprintf "%s: %s %s" (Printf.sprintf "\"%s\"" k) (Printf.sprintf "\"%s\"" a) (string_of_js_value v))
         |> String.concat ", "
       in
       Printf.sprintf "{ %s }" props_str

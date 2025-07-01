@@ -28,7 +28,7 @@ and js_param =
   | ParamRest of js_param
 [@@deriving yojson]
 and js_property =
-  | Property of string * js_value
+  | Property of string * string * js_value
 [@@deriving yojson]
 and js_statement =
   | Comment of string
@@ -86,6 +86,7 @@ type symbol =
 
 and rule = {
   name : string;
+  args : string;
   production : symbol;
 } [@@deriving yojson]
 
@@ -100,12 +101,6 @@ type tokens_spec = {
   type_: string option;
 } [@@deriving yojson]
 
-type external_function = {
-  name: string;
-  params: string list;
-  js_body: string option;  (* Optional JavaScript source *)
-} [@@deriving yojson]
-
 type grammarTS = {
   name: string;
   rules: rule list;
@@ -114,7 +109,6 @@ type grammarTS = {
   conflicts: string list list option;
   inline: string list option;
   externals: string list option;
-  (* external_functions: external_function list option; *)
   precedences: (string * int) list option;
   word: string option;
   supertypes: string list option;
@@ -123,6 +117,7 @@ type grammarTS = {
   injection_regex: string option;
   comments: string list option;
   auto_alias: bool option;
+  javascript: string list option;
 } [@@deriving yojson]
 
 
@@ -130,5 +125,6 @@ val parse_rules : js_property list -> rule list
 val parse_rule_ref : js_value -> symbol
 val parse_rule_ref_to_string : js_value -> string
 val parse_conflict: js_value -> string list
+val js_statement_to_js : js_statement -> string 
 val parse_precedence : js_value -> (string * int) list
 val parse_string : js_value -> string
