@@ -89,3 +89,15 @@ The reason why we still want to use `ANTLR` is because of how many grammars and 
 - [x] Storing an `Tree-sitter` grammar into an `OCAML` object (`Tree-sitter` grammar object)
 - [ ] Using an `OCAML` obect to generate a grammar in `Tree-sitter`
 - [ ] Translating an `ANTLR` grammar object into a `Tree-sitter` grammar object
+
+### Process description ⚙️
+1. The grammar's type is being identified thanks to its filename extension (⚠️ This tool doesn't verify if the grammar is correct or not)
+2. The grammar is then parsed into an `OCAML` object in [this folder](src/from_syntax) with the use of [menhir](https://opam.ocaml.org/packages/menhir/)🪨 (for now, there is a support only for `ANTLR` and `Tree-sitter`)
+3. The new grammar object is then automatically converted into a json Object thanks to [yojson](https://opam.ocaml.org/packages/yojson/)
+4. It is then archieved into a log folder (Based on the date of the process)
+5. It is read back from the json file back into the `OCAML` object and translated back into the type of file it was before (not completed for `Tree-sitter`)
+
+### Documentation 📝
+- `ANTLR` : [https://www.antlr.org/](https://www.antlr.org/)
+- `Tree-sitter` : [https://tree-sitter.github.io/tree-sitter/](https://tree-sitter.github.io/tree-sitter/)
+- Syntaxe-converter [https://github.com/antonincacadetruire/syntaxe-converter-1](https://github.com/antonincacadetruire/syntaxe-converter-1)
