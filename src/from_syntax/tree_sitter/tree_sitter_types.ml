@@ -195,188 +195,6 @@ let string_of_js_property (prop: js_property) : string =
   match prop with
   | Property (name, args, value) -> Printf.sprintf "%s: %s %s" name args (string_of_js_value value)
 
-let rec parse_element (elem: js_property) : symbol =
-  let elem_str = string_of_js_property elem in
-  match elem with
-  | Property(_, _, String s) -> Terminal s
-  | Property(_, _, Identifier s) -> NonTerminal s
-  | Property(_, _, Regex r) -> Terminal (Printf.sprintf "/%s/" r)
-  | Property(_, _, Object nested) -> parse_element (Property("", "", Object nested))
-  | Property(_, _, Array elements) ->
-      let elements_as_props = List.map (fun e -> Property("", "", e)) elements in
-      Choice (List.map parse_element elements_as_props)
-  | Property(_, _, FunctionCall("repeat", [arg])) -> Repeat (parse_element (Property("", "", arg)))
-  | Property(_, _, FunctionCall("optional", [arg])) -> Optional (parse_element (Property("", "", arg)))
-  | Property(_, _, FunctionCall("choice", args)) ->
-      let elements_as_props = List.map (fun e -> Property("", "", e)) args in
-      Choice (List.map parse_element elements_as_props)
-  | Property(_, _, FunctionCall("seq", args)) ->
-      let elements_as_props = List.map (fun e -> Property("", "", e)) args in
-      Sequence (List.map parse_element elements_as_props)
-  | Property(_, _, FunctionCall("alias", [arg; String alias])) ->
-      Alias (parse_element (Property("", "", arg)), alias)
-  | Property(_, _, FunctionCall("field", [String name; arg])) ->
-      Field (name, parse_element (Property("", "", arg)))
-  | Property(_, _, FunctionCall("token", [arg])) ->
-      parse_element (Property("", "", arg))
-  | Property(_, _, FunctionCall("prec", [_; arg])) ->
-      parse_element (Property("", "", arg))
-  | Property(_, _, FunctionCallExpr(MemberAccess(Identifier "token", "immediate"), [FunctionCall("prec", [_; Regex r])])) ->
-      Terminal (Printf.sprintf "/%s/" r)
-  | Property(_, _, FunctionCallExpr(MemberAccess(Identifier "prec", _), [prec; seq])) ->
-      let prec_sym = parse_element (Property("", "", prec)) in
-      let seq_sym = parse_element (Property("", "", seq)) in
-      Sequence [prec_sym; seq_sym]
-  | Property(_, _, Spread(FunctionCallExpr(MemberAccess(Array operators, "map"),
-      [ArrowFunction([ParamArray([ParamIdent _; ParamIdent _])], body)]))) ->
-      Choice (List.map (fun op ->
-        match op with
-        | Array [String _; MemberAccess(Identifier "PREC", prec_level)] ->
-            let prec_sym = NonTerminal prec_level in
-            let body_sym = parse_element (Property("", "", body)) in
-            Sequence [prec_sym; body_sym]
-        | _ -> failwith "Invalid operator mapping format"
-      ) operators)
-  | Property(_, _, ArrowFunction(_, body)) ->
-      let body_sym = parse_element (Property("", "", body)) in
-      Sequence [Terminal "=>"; body_sym]
-  | Property(_, _, FunctionCallExpr(func, args)) ->
-      let func_sym = parse_element (Property("", "", func)) in
-      let args_syms = List.map (fun arg -> parse_element (Property("", "", arg))) args in
-      Sequence (func_sym :: args_syms)
-  | Property(_, _, MemberAccess(Identifier _, prop)) ->
-      Terminal prop
-  | Property(_, _, MemberAccess(obj, prop)) ->
-      let obj_sym = parse_element (Property("", "", obj)) in
-      Sequence [obj_sym; Terminal prop]
-  | Property(_, _, FunctionCall(name, args)) ->
-      let args_syms = List.map (fun arg -> parse_element (Property("", "", arg))) args in
-      FunctionCall (name, args_syms) (* Directly represent as a function call *)
-  | _ ->
-      failwith (Printf.sprintf "Failed to parse grammar element: %s" elem_str)
-
-
-
-
-let parse_alternative (alt: js_property) : symbol =
-  match alt with
-  | Property(_,_,Object elements) ->
-      let elements_as_props = List.map (fun (Property(name,arg, value)) -> Property(name,arg, value)) elements in
-      Sequence (List.map parse_element elements_as_props)
-  | Property(_,_,Array elements) ->
-      let elements_as_props = List.map (fun e -> Property("","", e)) elements in
-      Choice (List.map parse_element elements_as_props)
-  | Property(_,_,Identifier id) -> NonTerminal id
-  | Property(_,_,String s) -> Terminal s
-  | Property(_,_,FunctionCall(name, args)) ->
-      parse_element (Property("","", FunctionCall(name, args)))
-  | _ -> failwith "Unsupported alternative type"
-
-let parse_rules (properties: js_property list) : rule list =
-  List.map (fun prop ->
-    match prop with
-    | Property(name, args, Object alternatives) ->
-        let alternatives_as_props = List.map (fun (Property(name,arg, value)) -> Property(name,arg, value)) alternatives in
-        { name; args; production = Choice (List.map parse_alternative alternatives_as_props) }
-    | Property(name,args, Array alternatives) ->
-        let alternatives_as_props = List.map (fun e -> Property("","", e)) alternatives in
-        { name; args; production = Choice (List.map parse_alternative alternatives_as_props) }
-    | Property(name,args, FunctionCall("prec", [_; Object alternatives])) ->
-        let alternatives_as_props = List.map (fun (Property(name, args, value)) -> Property(name, args, value)) alternatives in
-        { name; args; production = Choice (List.map parse_alternative alternatives_as_props) }
-    | Property(name, args, FunctionCall("prec", [_; Array alternatives])) ->
-        let alternatives_as_props = List.map (fun e -> Property("","", e)) alternatives in
-        { name; args; production = Choice (List.map parse_alternative alternatives_as_props) }
-    | Property(name, args, FunctionCall(name2, args2)) ->
-        (* Handle direct function calls as rules *)
-        { name; args; production = parse_element (Property("","", FunctionCall(name2, args2))) }
-    | Property(name, args, FunctionCallExpr(MemberAccess(Identifier "token", "immediate"), args2)) ->
-        (* Handle token.immediate(...) as a top-level rule *)
-        { name; args; production = parse_element (Property("","", FunctionCallExpr(MemberAccess(Identifier "token", "immediate"), args2))) }
-    | Property(name, args, Spread(value)) ->
-        (* Handle spread operator patterns *)
-        { name; args; production = parse_element (Property("","", value)) }
-    | Property(name, args, String s) ->  (* Handle direct string values *)
-        { name; args; production = Terminal s }
-    | Property(name, args, Boolean true) ->  (* Handle boolean true *)
-        { name; args; production = Terminal "true" }
-    | Property(name, args, Boolean false) ->  (* Handle boolean false *)
-        { name; args; production = Terminal "false" }
-    | Property(name, args, Null) ->  (* Handle null *)
-        { name; args; production = Terminal "null" }
-    | Property(name, args, Regex r) ->  (* Handle regex patterns *)
-        { name; args; production = Terminal (Printf.sprintf "/%s/" r) }
-    | Property(name, args, FunctionCallExpr(MemberAccess(Identifier "prec", assoc), args2)) ->
-        (* Handle prec.right(...) as a top-level rule *)
-        { name; args; production = parse_element (Property("","", FunctionCallExpr(MemberAccess(Identifier "prec", assoc), args2)) )}
-    | Property(name, args, value) ->
-        failwith (Printf.sprintf "Unsupported property type '%s' in rule '%s' with args %s Expected an object, array, or supported function call."
-            (string_of_js_value value) name args)
-  ) properties
-
-
-let parse_rule_ref = function
-  | Identifier s -> NonTerminal s
-  | String s -> Terminal s
-  | Regex r -> Terminal ("/" ^ r ^ "/")
-  | Boolean true -> Terminal "true"
-  | Boolean false -> Terminal "false"
-  | Null -> Terminal "null"
-  | _ -> failwith "Unsupported rule reference"
-
-let parse_rule_ref_to_string = function
-  | Identifier s -> "$." ^ s
-  | String s -> s
-  | Regex r -> "/" ^ r ^ "/"
-  | Boolean true -> "true"
-  | Boolean false -> "false"
-  | Null -> "null"
-  | _ -> failwith "Unsupported rule reference in conflicts"
-
-let parse_conflict (value: js_value) : string list =
-  match value with
-  | Array refs ->
-      List.map (fun ref_value ->
-        match ref_value with
-        | Object [Property (_,_, inner_value)] -> parse_rule_ref_to_string inner_value
-        | Identifier s -> parse_rule_ref_to_string (Identifier s)
-        | _ ->
-            let ref_str = string_of_js_value ref_value in
-            failwith (Printf.sprintf "Expected an object or identifier for rule reference, got: %s" ref_str)
-      ) refs
-  | _ ->
-      let value_str = string_of_js_value value in
-      failwith (Printf.sprintf "Expected an array of rule references, got: %s" value_str)
-
-(* let extract_js_body (body: js_statement list) : string option =
-  (* Implement this based on how you want to store JS source *)
-  Some (String.concat "\n" (List.map string_of_js_statement body)) *)
-
-(* let parse_external_function (value: js_value) : string =
-  match value with
-  | Object properties ->
-      let name = ref None in
-      let params = ref [] in
-      let js_body = ref None in
-      List.iter (fun prop ->
-        match prop with
-        | Property("name", String s) -> name := Some s
-        | Property("params", Array param_values) ->
-            params := List.map (function
-              | String s -> s
-              | _ -> failwith "Expected string parameter") param_values
-        | Property("js_body", String s) -> js_body := Some s
-        | _ -> ()) properties;
-      {
-        name = (match !name with Some n -> n | None -> failwith "Name is required for external function");
-        params = !params;
-        js_body = !js_body;
-      }
-  | _ -> failwith "Expected an object for external function" *)
-
-let parse_precedence (_ : js_value) = []
-let parse_string (_ : js_value) = ""
-
 let rec js_value_to_js (value: js_value) : string =
   match value with
   | String s -> Printf.sprintf "%c%s%c" '"' s '"'
@@ -446,3 +264,206 @@ and js_statement_to_js (stmt: js_statement) : string =
       Printf.sprintf "function %s(%s) {%s}" name params_js body_js
   | Return value -> Printf.sprintf "return %s;" (js_value_to_js value)
   | ExprStmt expr -> Printf.sprintf "%s;" (js_value_to_js expr)
+
+let rec parse_element (elem: js_property) : symbol =
+  (* Printf.printf "Parsing element: %s\n" (string_of_js_property elem); *)
+  let elem_str = string_of_js_property elem in
+  match elem with
+  | Property(_, _, String s) -> Terminal s
+  | Property(_, _, Identifier s) -> NonTerminal s
+  | Property(_, _, Regex r) -> Terminal (Printf.sprintf "/%s/" r)
+  | Property(_, _, Object nested) -> parse_element (Property("", "", Object nested))
+  | Property(_, _, Array elements) ->
+      let elements_as_props = List.map (fun e -> Property("", "", e)) elements in
+      Choice (List.map parse_element elements_as_props)
+  | Property(_, _, FunctionCall("repeat", [arg])) -> Repeat (parse_element (Property("", "", arg)))
+  | Property(_, _, FunctionCall("optional", [arg])) -> Optional (parse_element (Property("", "", arg)))
+  | Property(_, _, FunctionCall("choice", args)) ->
+      let elements_as_props = List.map (fun e -> Property("", "", e)) args in
+      Choice (List.map parse_element elements_as_props)
+  | Property(_, _, FunctionCall("seq", args)) ->
+      let elements_as_props = List.map (fun e -> Property("", "", e)) args in
+      Sequence (List.map parse_element elements_as_props)
+  | Property(_, _, FunctionCall("alias", [arg; String alias])) ->
+      Alias (parse_element (Property("", "", arg)), alias)
+  | Property(_, _, FunctionCall("field", [String name; arg])) ->
+      Field (name, parse_element (Property("", "", arg)))
+  | Property(_, _, FunctionCall("token", [arg])) ->
+      parse_element (Property("", "", arg))
+  | Property(_, _, FunctionCall("prec", [_; arg])) ->
+      parse_element (Property("", "", arg))
+  | Property(_, _, FunctionCallExpr(MemberAccess(Identifier "token", "immediate"), [FunctionCall("prec", [_; Regex r])])) ->
+      Terminal (Printf.sprintf "/%s/" r)
+  | Property(_, _, FunctionCallExpr(MemberAccess(Identifier "prec", _), [prec; seq])) ->
+      let prec_sym = parse_element (Property("", "", prec)) in
+      let seq_sym = parse_element (Property("", "", seq)) in
+      Sequence [prec_sym; seq_sym]
+  | Property(_, _, Spread(FunctionCallExpr(MemberAccess(Array operators, "map"),
+      [ArrowFunction([ParamArray([ParamIdent _; ParamIdent _])], body)]))) ->
+      Choice (List.map (fun op ->
+        match op with
+        | Array [String _; MemberAccess(Identifier "PREC", prec_level)] ->
+            let prec_sym = NonTerminal prec_level in
+            let body_sym = parse_element (Property("", "", body)) in
+            Sequence [prec_sym; body_sym]
+        | _ -> failwith "Invalid operator mapping format"
+      ) operators)
+  | Property(_, _, ArrowFunction(_, body)) ->
+      let body_sym = parse_element (Property("", "", body)) in
+      Sequence [Terminal "=>"; body_sym]
+  | Property(_, _, FunctionCallExpr(func, args)) ->
+      let func_sym = parse_element (Property("", "", func)) in
+      let args_syms = List.map (fun arg -> parse_element (Property("", "", arg))) args in
+      Sequence (func_sym :: args_syms)
+  | Property(_, _, MemberAccess(Identifier _, prop)) ->
+      Terminal ("$." ^ prop) (* Preserve the $ prefix *)
+  | Property(_, _, MemberAccess(obj, prop)) ->
+      let obj_sym = parse_element (Property("", "", obj)) in
+      Sequence [obj_sym; Terminal ("$." ^ prop)] (* Preserve the $ prefix *)
+  | Property(_, _, FunctionCall(name, args)) ->
+      let args_syms = List.map (fun arg -> parse_element (Property("", "", arg))) args in
+      FunctionCall (name, args_syms)
+  | Property(_, _, Number n) -> 
+      Terminal (string_of_int n)
+  
+  | Property(_, _, Spread(FunctionCallExpr(MemberAccess(Array operators, "map"),
+      [ArrowFunction([ParamArray(_)], body)]))) ->
+      
+      (* Parse individual operator definitions *)
+      let parse_operator = function
+        | Array [String op; String prec] -> (op, prec, "left")
+        | Array [String op; String prec; String assoc] -> (op, prec, assoc)
+        | _ -> failwith "Invalid operator format"
+      in
+      
+      (* Create symbol for each operator *)
+      let operator_symbols = List.map (fun op ->
+        let (op_str, prec_name, assoc) = parse_operator op in
+        (* Create the full operator rule structure *)
+        Sequence [
+          Terminal op_str;
+          NonTerminal prec_name;
+          Terminal assoc;
+          (* Parse the rule body *)
+          parse_element (Property("", "", body))
+        ]
+      ) operators in
+      
+      Choice operator_symbols
+  |  Property(_, _, Ternary(cond, true_expr, false_expr)) ->
+      let cond_sym = parse_element (Property("", "", cond)) in
+      let true_sym = parse_element (Property("", "", true_expr)) in
+      let false_sym = parse_element (Property("", "", false_expr)) in
+      Sequence [cond_sym; Terminal "?"; true_sym; Terminal ":"; false_sym]
+  | _ ->
+      failwith (Printf.sprintf "Failed to parse grammar element: %s" elem_str)
+
+let parse_alternative (alt: js_property) : symbol =
+  match alt with
+  | Property(_,_,Object elements) ->
+      let elements_as_props = List.map (fun (Property(name,arg, value)) -> Property(name,arg, value)) elements in
+      Sequence (List.map parse_element elements_as_props)
+  | Property(_,_,Array elements) ->
+      let elements_as_props = List.map (fun e -> Property("","", e)) elements in
+      Choice (List.map parse_element elements_as_props)
+  | Property(_,_,Identifier id) -> NonTerminal id
+  | Property(_,_,String s) -> Terminal s
+  | Property(_,_,FunctionCall(name, args)) ->
+      parse_element (Property("","", FunctionCall(name, args)))
+  | _ -> failwith "Unsupported alternative type"
+
+let parse_rules (properties: js_property list) : rule list * string list =
+  let javascript = ref [] in
+  let rules = List.map (fun prop ->
+    match prop with
+    | Property(name, args, Object alternatives) ->
+        let alternatives_as_props = List.map (fun (Property(name,arg, value)) -> Property(name,arg, value)) alternatives in
+        { name; args; production = Choice (List.map parse_alternative alternatives_as_props) }
+    | Property(name,args, Array alternatives) ->
+        let alternatives_as_props = List.map (fun e -> Property("","", e)) alternatives in
+        { name; args; production = Choice (List.map parse_alternative alternatives_as_props) }
+    | Property(name,args, FunctionCall("prec", [_; Object alternatives])) ->
+        let alternatives_as_props = List.map (fun (Property(name, args, value)) -> Property(name, args, value)) alternatives in
+        { name; args; production = Choice (List.map parse_alternative alternatives_as_props) }
+    | Property(name, args, FunctionCall("prec", [_; Array alternatives])) ->
+        let alternatives_as_props = List.map (fun e -> Property("","", e)) alternatives in
+        { name; args; production = Choice (List.map parse_alternative alternatives_as_props) }
+    | Property(name, args, FunctionCall(name2, args2)) ->
+        { name; args; production = parse_element (Property("","", FunctionCall(name2, args2))) }
+    | Property(name, args, FunctionCallExpr(MemberAccess(Identifier "token", "immediate"), args2)) ->
+        { name; args; production = parse_element (Property("","", FunctionCallExpr(MemberAccess(Identifier "token", "immediate"), args2))) }
+    | Property(name, args, Spread(value)) ->
+        { name; args; production = parse_element (Property("","", value)) }
+    | Property(name, args, String s) -> 
+        { name; args; production = Terminal s }
+    | Property(name, args, Boolean true) ->
+        { name; args; production = Terminal "true" }
+    | Property(name, args, Boolean false) ->
+        { name; args; production = Terminal "false" }
+    | Property(name, args, Null) ->
+        { name; args; production = Terminal "null" }
+    | Property(name, args, Regex r) ->
+        { name; args; production = Terminal (Printf.sprintf "/%s/" r) }
+    | Property(name, args, FunctionCallExpr(MemberAccess(Identifier "prec", assoc), args2)) ->
+        { name; args; production = parse_element (Property("","", FunctionCallExpr(MemberAccess(Identifier "prec", assoc), args2)) )}
+    | Property(name, args, ArrowFunctionBlock(params, block)) ->
+        let js_impl = 
+          Printf.sprintf "function %s(%s) {%s}" 
+            name
+            (String.concat ", " (List.map js_param_to_js params))
+            (String.concat "" (List.map js_statement_to_js block))
+        in
+        (* Printf.printf "DEBUG: Generated JS implementation:\n%s\n" js_impl; *)
+        javascript := js_impl :: !javascript;
+        { name; args; production = NonTerminal name }
+    | Property(name, args, ArrowFunction(params, body)) ->
+        let js_code = Printf.sprintf "(%s) => %s" 
+          (String.concat ", " (List.map js_param_to_js params))
+          (js_value_to_js body) in
+        javascript := js_code :: !javascript;
+        { name; args; production = NonTerminal name }
+    | Property(name, args, value) ->
+        failwith (Printf.sprintf "Unsupported property type '%s' in rule '%s' with args %s Expected an object, array, or supported function call."
+            (string_of_js_value value) name args)
+  ) properties in
+    (* Printf.printf "DEBUG: Collected %d JavaScript implementations\n" (List.length !javascript); *)
+  (rules, !javascript)
+
+
+let parse_rule_ref = function
+  | Identifier s -> NonTerminal s
+  | String s -> Terminal s
+  | Regex r -> Terminal ("/" ^ r ^ "/")
+  | Boolean true -> Terminal "true"
+  | Boolean false -> Terminal "false"
+  | Null -> Terminal "null"
+  | _ -> failwith "Unsupported rule reference"
+
+let parse_rule_ref_to_string = function
+  | Identifier s -> "$." ^ s
+  | String s -> s
+  | Regex r -> "/" ^ r ^ "/"
+  | Boolean true -> "true"
+  | Boolean false -> "false"
+  | Null -> "null"
+  | _ -> failwith "Unsupported rule reference in conflicts"
+
+let parse_conflict (value: js_value) : string list =
+  match value with
+  | Array refs ->
+      List.map (fun ref_value ->
+        match ref_value with
+        | Object [Property (_,_, inner_value)] -> parse_rule_ref_to_string inner_value
+        | Identifier s -> parse_rule_ref_to_string (Identifier s)
+        | _ ->
+            let ref_str = string_of_js_value ref_value in
+            failwith (Printf.sprintf "Expected an object or identifier for rule reference, got: %s" ref_str)
+      ) refs
+  | _ ->
+      let value_str = string_of_js_value value in
+      failwith (Printf.sprintf "Expected an array of rule references, got: %s" value_str)
+
+let parse_precedence (_ : js_value) = []
+let parse_string (_ : js_value) = ""
+
+

@@ -8,6 +8,8 @@
 /// <reference types="tree-sitter-cli/dsl" />
 // @ts-check
 
+function commaSep(rule) {return optional(commaSep1(rule));}
+
 module.exports = grammar({
   name: 'javascript',
 

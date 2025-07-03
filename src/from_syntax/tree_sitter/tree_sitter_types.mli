@@ -122,7 +122,7 @@ type grammarTS = {
 } [@@deriving yojson]
 
 
-val parse_rules : js_property list -> rule list
+val parse_rules : js_property list  -> rule list * string list
 val parse_rule_ref : js_value -> symbol
 val parse_rule_ref_to_string : js_value -> string
 val parse_conflict: js_value -> string list

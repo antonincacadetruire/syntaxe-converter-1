@@ -1,22 +1,10 @@
-const DIGITS = token(choice('0', seq(/[1-9]/, optional(seq(optional('_'), sep1(/[0-9]+/, /_+/))))));
-const DECIMAL_DIGITS = token(sep1(/[0-9]+/, '_'));
-const HEX_DIGITS = token(sep1(/[A-Fa-f0-9]+/, '_'));
-
 module.exports = grammar({
   rules: {
-    this: _ => 'this',
-    super: _ => 'super',
-    true: _ => 'true',
-    false: _ => 'false',
-    null: _ => 'null',
-    undefined: _ => 'undefined',
+    identifier: _ => {
+      const alpha = /[^\x00-\x1F\s\p{Zs}0-9:;`"'@#.,|^&<=>+\-*/\\%?!~()\[\]{}\uFEFF\u2060\u200B\u2028\u2029]|\\u[0-9a-fA-F]{4}|\\u\{[0-9a-fA-F]+\}/;
 
-    throws: $ => seq(
-      'throws', commaSep1($._type),
-    ),
+      const alphanumeric = /[^\x00-\x1F\s\p{Zs}:;`"'@#.,|^&<=>+\-*/\\%?!~()\[\]{}\uFEFF\u2060\u200B\u2028\u2029]|\\u[0-9a-fA-F]{4}|\\u\{[0-9a-fA-F]+\}/;
+      return token(seq(alpha, repeat(alphanumeric)));
+    },
   }
 });
-
-function sep1(rule, separator) {
-  return seq(rule, repeat(seq(separator, rule)));
-}

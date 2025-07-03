@@ -39,16 +39,31 @@
 %%
 
 main:
-  | preamble=js_statements grammar_export opt_semicolon js_statements EOF {
+  | preamble=js_statements grammar_export opt_semicolon postamble=js_statements EOF {
       let grammar = $2 in
-      let javascript = List.map js_statement_to_js (preamble @ $4) in
-      (preamble @ $4, { grammar with javascript = Some javascript })
+      (* Combine all JS sources *)
+      let preamble_js = List.map js_statement_to_js preamble in
+      let rule_js = match grammar.javascript with Some js -> js | None -> [] in
+      let postamble_js = List.map js_statement_to_js postamble in
+      let combined_js = preamble_js @ rule_js @ postamble_js in
+      
+      (* Debug output *)
+      (* Printf.printf "Combined JS implementations (%d total):\n" (List.length combined_js);
+      List.iteri (fun i js -> Printf.printf "  [%d] %s\n" i js) combined_js; *)
+      
+      (preamble @ postamble, { grammar with javascript = Some combined_js })
     }
   | preamble=js_statements EOF {
-      let javascript = List.map js_statement_to_js preamble in
-      (preamble, { (mk_grammar ~name:"" ~rules:[] ~extras:None ~conflicts:None ~inline:None ~externals:None ~precedences:None ~word:None ~supertypes:None ~scope:None ~file_types:None ~injection_regex:None ~comments:None ~auto_alias:None ~javascript:None) with javascript = Some javascript })
+      let preamble_js = List.map js_statement_to_js preamble in
+      (preamble, { 
+        (mk_grammar ~name:"" ~rules:[] ~extras:None ~conflicts:None 
+         ~inline:None ~externals:None ~precedences:None ~word:None 
+         ~supertypes:None ~scope:None ~file_types:None 
+         ~injection_regex:None ~comments:None ~auto_alias:None 
+         ~javascript:None) 
+        with javascript = Some preamble_js 
+      })
     }
-  | error { raise (SyntaxError "Unexpected token in main rule") }
 
 
 opt_semicolon:
@@ -116,7 +131,28 @@ grammar_field:
   | IDENT COLON js_value {
       fun g -> match $1, $3 with
       | "name", String s -> { g with name = s }
-      | "rules", Object rules -> { g with rules = parse_rules rules }
+      | "rules", Object rules -> 
+    let (new_rules, new_js) = parse_rules rules in
+    (* Debug output to verify values *)
+    (* Printf.printf "DEBUG: New JS implementations found: %d\n" (List.length new_js);
+    List.iteri (fun i js -> Printf.printf "  [%d] %s\n" i js) new_js; *)
+    
+    (* Create updated grammar with both rules and JS *)
+    let updated_grammar = { 
+      g with 
+      rules = new_rules;
+      javascript = Some (match g.javascript with 
+                        | Some existing -> existing @ new_js 
+                        | None -> new_js)
+    } in
+    
+    (* Verify the update took effect *)
+    Printf.printf "DEBUG: Updated grammar JS count: %d\n" 
+      (match updated_grammar.javascript with 
+       | Some js -> List.length js 
+       | None -> 0);
+    
+    updated_grammar
       | "extras", Array extras -> { g with extras = Some (List.map parse_rule_ref_to_string extras) }
       | "conflicts", Array conflicts -> { g with conflicts = Some (List.map parse_conflict conflicts) }
       | "inline", Array inlines -> { g with inline = Some (List.map parse_rule_ref_to_string inlines) }
