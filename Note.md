@@ -39,3 +39,6 @@ INTEGER
 ```
 That means I'll have to be carreful when parsing a file to understand this clearly, and to link those rules and fragments together.
 
+### Javascript
+In `Tree-sitter`some rules are being written in `javascript`. For simplification purpose, those rules are being stored as strings in the grammar, and will be executed during runtime with `node`. 
+
